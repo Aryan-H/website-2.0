@@ -18,6 +18,7 @@ import CoastalGround, {
   WATERFRONT_STREET_X,
   shorelineZAtX,
 } from "./three/CoastalGround";
+import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
 
 type CitySceneProps = {
   selected: DestinationId | null;
@@ -53,8 +54,8 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
     landmark: "UofT campus",
   },
   experience: {
-    position: [-20, 0, -3],
-    labelPosition: [0, 9.7, 0],
+    position: [-23, 0, -2.25],
+    labelPosition: [0, 10.15, 0],
     number: "03",
     title: "Experience",
     landmark: "Shopify office",
@@ -120,7 +121,7 @@ const DEFAULT_VIEW = {
 const CAMERA_VIEWS: Record<DestinationId, { position: Point; target: Point }> = {
   about: createCinematicView([19, 4.5, -15.25], 18),
   education: createCinematicView([-7, 2.1, -15.25], 14.5),
-  experience: createCinematicView([-20, 4.9, -3], 15.5),
+  experience: createCinematicView([-23, 4.9, -2.25], 20),
   market: createCinematicView([10.5, 1.85, -8.75], 14),
   projects: createCinematicView([6, 1.4, 8], 13),
   hobbies: createCinematicView([-15, 1.65, -15.25], 11.5),
@@ -1256,7 +1257,6 @@ const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   experience: [
     [-7, 0.13, 1],
     [-19, 0.13, 1],
-    [-20, 0.13, -3],
   ],
   market: [
     [-3, 0.13, -5.5],
@@ -1280,6 +1280,12 @@ const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   ],
 };
 
+const ROUTE_ENDPOINTS: Partial<
+  Record<Exclude<DestinationId, "overview">, Point>
+> = {
+  experience: [-20.85, 0.13, -0.35],
+};
+
 function createRoutes(): RouteAsset[] {
   const origin = new THREE.Vector3(
     LANDMARKS.overview.position[0],
@@ -1288,7 +1294,7 @@ function createRoutes(): RouteAsset[] {
   );
   return (Object.keys(ROUTE_WAYPOINTS) as Array<Exclude<DestinationId, "overview">>).map(
     (id) => {
-      const destination = LANDMARKS[id].position;
+      const destination = ROUTE_ENDPOINTS[id] ?? LANDMARKS[id].position;
       const curve = new THREE.CatmullRomCurve3(
         [
           origin.clone(),
@@ -1778,98 +1784,6 @@ function ApartmentTower() {
   );
 }
 
-function CareerTower() {
-  const bands = useMemo<InstanceTransform[]>(() => {
-    const result: InstanceTransform[] = [];
-    for (let floor = 0; floor < 14; floor += 1) {
-      result.push({
-        position: [0, 0.78 + floor * 0.55, 1.63],
-        scale: [1.52, 0.018, 0.018],
-      });
-      result.push({
-        position: [1.63, 0.78 + floor * 0.55, 0],
-        scale: [0.018, 0.018, 1.52],
-      });
-    }
-    return result;
-  }, []);
-  const mullions = useMemo<InstanceTransform[]>(
-    () =>
-      [-1.18, -0.6, 0, 0.6, 1.18].flatMap((x) => [
-        {
-          position: [x, 4.3, 1.635] as Point,
-          scale: [0.014, 3.75, 0.018] as Point,
-        },
-      ]),
-    [],
-  );
-
-  return (
-    <group>
-      <mesh position={[0, 0.62, 0.15]} castShadow>
-        <boxGeometry args={[4.7, 1.24, 3.65]} />
-        <meshStandardMaterial color="#111a22" metalness={0.58} roughness={0.36} />
-      </mesh>
-      <mesh position={[0, 4.25, 0]} castShadow>
-        <boxGeometry args={[3.2, 7.3, 3.2]} />
-        <meshPhysicalMaterial
-          clearcoat={0.88}
-          clearcoatRoughness={0.14}
-          color="#071723"
-          metalness={0.78}
-          roughness={0.2}
-        />
-      </mesh>
-      <mesh position={[-0.42, 8.18, -0.14]} castShadow>
-        <boxGeometry args={[2.25, 0.58, 2.3]} />
-        <meshStandardMaterial color="#0c1f2a" metalness={0.67} roughness={0.29} />
-      </mesh>
-      <DetailInstances items={bands} color="#5fa9d0" opacity={0.62} />
-      <DetailInstances items={mullions} color="#365f78" opacity={0.68} />
-      <mesh position={[0, 8.62, 0]}>
-        <boxGeometry args={[2.65, 0.19, 2.65]} />
-        <meshBasicMaterial color="#78be43" opacity={0.82} transparent toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 7.45, 1.66]}>
-        <boxGeometry args={[2.72, 0.98, 0.1]} />
-        <meshStandardMaterial color="#071016" metalness={0.48} roughness={0.4} />
-      </mesh>
-      <Html
-        center
-        distanceFactor={3.8}
-        position={[0, 7.45, 1.73]}
-        style={{ pointerEvents: "none", userSelect: "none" }}
-        transform
-        zIndexRange={[10, 0]}
-      >
-        <div
-          style={{
-            width: 180,
-            padding: "15px 18px",
-            background: "#071016",
-            border: "1px solid rgba(255,255,255,.08)",
-          }}
-        >
-          <span
-            style={{
-              display: "block",
-              width: "100%",
-              aspectRatio: "304.18 / 86.73",
-              background: "center / contain no-repeat url('/shopify-logo-inverted.svg')",
-            }}
-          />
-        </div>
-      </Html>
-      {[-1.45, -0.48, 0.48, 1.45].map((x) => (
-        <mesh key={x} position={[x, 0.62, 2.005]}>
-          <boxGeometry args={[0.58, 0.72, 0.035]} />
-          <meshBasicMaterial color="#9bd5ef" opacity={0.58} transparent toneMapped={false} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 function UofTCampus() {
   const windows = useMemo<InstanceTransform[]>(
     () =>
@@ -2152,7 +2066,7 @@ function Landmarks(props: CitySceneProps) {
         <UofTCampus />
       </InteractiveLandmark>
       <InteractiveLandmark id="experience" {...props}>
-        <CareerTower />
+        <ShopifyOfficeDetailed reducedMotion={props.reducedMotion} />
       </InteractiveLandmark>
       <InteractiveLandmark id="market" {...props}>
         <EatonCentre />
@@ -2198,7 +2112,7 @@ function CityWorld(props: CitySceneProps) {
       />
       <pointLight color="#247fc7" distance={25} intensity={38} position={[-1, 5, 1]} />
       <pointLight color="#e7a45b" distance={13} intensity={22} position={[-7, 4.5, -15.25]} />
-      <pointLight color="#78be43" distance={12} intensity={17} position={[-20, 5.5, -3]} />
+      <pointLight color="#48c6ff" distance={14} intensity={21} position={[-23, 5.8, -2.25]} />
       <pointLight color="#e2a45c" distance={12} intensity={18} position={[19, 5.6, -15.25]} />
       <pointLight color="#378fbc" distance={16} intensity={20} position={[6, 2.2, 8]} />
       <pointLight color="#f0b66f" decay={2} distance={10} intensity={13} position={[-15, 3.2, -14.1]} />
