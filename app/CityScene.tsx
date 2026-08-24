@@ -11,6 +11,13 @@ import {
 } from "react";
 import * as THREE from "three";
 import type { DestinationId } from "./portfolio-data";
+import ClimbingGymDetailed from "./three/ClimbingGymDetailed";
+import ClimbingGymSurroundings from "./three/ClimbingGymSurroundings";
+import CoastalGround, {
+  COASTAL_ROAD_SETBACK,
+  WATERFRONT_STREET_X,
+  shorelineZAtX,
+} from "./three/CoastalGround";
 
 type CitySceneProps = {
   selected: DestinationId | null;
@@ -32,56 +39,56 @@ type LandmarkDefinition = {
 
 const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
   about: {
-    position: [11.1, 0, -10.2],
+    position: [19, 0, -15.25],
     labelPosition: [0, 9, 0],
     number: "01",
     title: "About me",
     landmark: "My apartment",
   },
   education: {
-    position: [-0.6, 0, -11.5],
+    position: [-7, 0, -15.25],
     labelPosition: [0, 5.5, 0],
     number: "02",
     title: "Education",
     landmark: "UofT campus",
   },
   experience: {
-    position: [-13.2, 0, -2.8],
+    position: [-20, 0, -3],
     labelPosition: [0, 9.7, 0],
     number: "03",
     title: "Experience",
     landmark: "Shopify office",
   },
   market: {
-    position: [6.8, 0, -4.2],
+    position: [10.5, 0, -8.75],
     labelPosition: [0, 4.1, 0],
     number: "04",
     title: "UofTMarket",
     landmark: "Eaton Centre",
   },
   projects: {
-    position: [12.4, 0, 7.7],
-    labelPosition: [-1.2, 3.45, 0],
+    position: [6, 0, 8],
+    labelPosition: [0, 3.65, 0],
     number: "05",
     title: "Selected projects",
-    landmark: "Harbourfront marina",
+    landmark: "Harvourfront",
   },
   hobbies: {
-    position: [-8.5, 0, -8.2],
-    labelPosition: [0, 4.05, 0],
+    position: [-15, 0, -15.25],
+    labelPosition: [0, 4.15, 0],
     number: "06",
     title: "Beyond work",
     landmark: "Climbing gym",
   },
   contact: {
-    position: [4.2, 0, 2.5],
+    position: [1.5, 0, -2.25],
     labelPosition: [0, 3.75, 0],
     number: "07",
     title: "Contact",
     landmark: "Union Station",
   },
   overview: {
-    position: [-2.2, 0, 1.15],
+    position: [-7, 0, -2.25],
     labelPosition: [0, 12.8, 0],
     number: "08",
     title: "Quick view",
@@ -89,44 +96,36 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
   },
 };
 
+const CINEMATIC_VIEW_DIRECTION = [0.625, 0.403, 0.665] as Point;
+
+function createCinematicView(
+  target: Point,
+  distance: number,
+): { position: Point; target: Point } {
+  return {
+    position: [
+      target[0] + CINEMATIC_VIEW_DIRECTION[0] * distance,
+      target[1] + CINEMATIC_VIEW_DIRECTION[1] * distance,
+      target[2] + CINEMATIC_VIEW_DIRECTION[2] * distance,
+    ],
+    target,
+  };
+}
+
 const DEFAULT_VIEW = {
-  position: [0, 22.5, 35] as Point,
-  target: [0, 2.4, -1.8] as Point,
+  position: [31.25, 21.65, 31.25] as Point,
+  target: [0, 1.5, -2] as Point,
 };
 
 const CAMERA_VIEWS: Record<DestinationId, { position: Point; target: Point }> = {
-  about: {
-    position: [18.8, 13, 7],
-    target: [11.1, 5, -10.2],
-  },
-  education: {
-    position: [4.8, 8.2, -1.5],
-    target: [-0.6, 2.1, -11.5],
-  },
-  experience: {
-    position: [-3.5, 14.5, 14],
-    target: [-13.2, 5.5, -2.8],
-  },
-  market: {
-    position: [12.8, 6.6, 5.1],
-    target: [6.8, 1.75, -4.2],
-  },
-  projects: {
-    position: [18.4, 7.1, 17.6],
-    target: [12.4, 1.2, 7.7],
-  },
-  hobbies: {
-    position: [-2.4, 6.9, 1.8],
-    target: [-8.5, 1.7, -8.2],
-  },
-  contact: {
-    position: [10.6, 6.2, 12.8],
-    target: [4.2, 1.55, 2.5],
-  },
-  overview: {
-    position: [7.6, 17.8, 22.2],
-    target: [-2.2, 5.8, 1.15],
-  },
+  about: createCinematicView([19, 4.5, -15.25], 18),
+  education: createCinematicView([-7, 2.1, -15.25], 14.5),
+  experience: createCinematicView([-20, 4.9, -3], 15.5),
+  market: createCinematicView([10.5, 1.85, -8.75], 14),
+  projects: createCinematicView([6, 1.4, 8], 13),
+  hobbies: createCinematicView([-15, 1.65, -15.25], 11.5),
+  contact: createCinematicView([1.5, 1.7, -2.25], 14),
+  overview: createCinematicView([-7, 5.8, -2.25], 20),
 };
 
 const BLUE = "#48c6ff";
@@ -141,6 +140,7 @@ function CameraRig({
   const currentTarget = useRef(new THREE.Vector3(...DEFAULT_VIEW.target));
   const desiredPosition = useRef(new THREE.Vector3());
   const desiredTarget = useRef(new THREE.Vector3());
+  const panOffset = useRef(new THREE.Vector3());
 
   useEffect(() => {
     if (!reducedMotion) return;
@@ -163,21 +163,20 @@ function CameraRig({
     }
 
     const time = clock.getElapsedTime();
-    const driftStrength = selected ? 0.08 : 0.28;
-    const pointerStrength = selected ? 0.35 : 0.72;
+    const driftStrength = selected ? 0.025 : 0.085;
+    const pointerStrength = selected ? 0.055 : 0.12;
 
-    desiredPosition.current
-      .fromArray(view.position)
-      .add(
-        new THREE.Vector3(
-          pointer.x * pointerStrength + Math.sin(time * 0.12) * driftStrength,
-          pointer.y * pointerStrength * 0.34 + Math.sin(time * 0.09) * driftStrength * 0.35,
-          Math.cos(time * 0.1) * driftStrength,
-        ),
-      );
-    desiredTarget.current
-      .fromArray(view.target)
-      .add(new THREE.Vector3(pointer.x * 0.18, pointer.y * 0.1, 0));
+    // Pan camera and target together. This preserves the architectural
+    // 45-degree view instead of making the city orbit like a game board.
+    panOffset.current.set(
+      pointer.x * pointerStrength + Math.sin(time * 0.12) * driftStrength,
+      pointer.y * pointerStrength * 0.42 +
+        Math.sin(time * 0.09) * driftStrength * 0.24,
+      pointer.x * pointerStrength * 0.78 +
+        Math.sin(time * 0.12) * driftStrength * 0.78,
+    );
+    desiredPosition.current.fromArray(view.position).add(panOffset.current);
+    desiredTarget.current.fromArray(view.target).add(panOffset.current);
 
     const positionDamping = selected ? 2.35 : 1.75;
     camera.position.set(
@@ -242,6 +241,7 @@ type Building = {
   depth: number;
   height: number;
   tone: number;
+  protectedSightline: boolean;
 };
 
 type WindowLight = {
@@ -256,16 +256,158 @@ type CityData = {
   changingWindows: WindowLight[];
 };
 
-const ROAD_Z = [-13.8, -7.1, -1.2, 4.8] as const;
-const ROAD_X = [-10.3, -4.5, 2.6, 8.55] as const;
+const ROAD_Z = [-18.5, -12, -5.5, 1] as const;
+const ROAD_X = WATERFRONT_STREET_X;
+const CITY_MIN_X = -35;
+const CITY_MAX_X = 35;
+const CITY_MIN_Z = -22;
+
+function inlandRoadEndX(z: number) {
+  let end = CITY_MIN_X;
+  for (let x = CITY_MIN_X; x <= CITY_MAX_X; x += 0.25) {
+    if (z < shorelineZAtX(x) - COASTAL_ROAD_SETBACK) end = x;
+  }
+  return end;
+}
+
+function horizontalRoadEnd(z: number) {
+  // The southernmost east-west street now terminates cleanly at the x=15
+  // waterfront street instead of drifting into the diagonal shoreline.
+  return z === 1 ? 15.66 : inlandRoadEndX(z);
+}
+
+function verticalRoadEnd(x: number) {
+  return shorelineZAtX(x) - COASTAL_ROAD_SETBACK;
+}
+
+type ProtectionProfile = {
+  disk: number;
+  corridor: number;
+  sightY: number;
+  edgeHeight: number;
+};
+
+const PROTECTION: Record<DestinationId, ProtectionProfile> = {
+  about: { disk: 3.8, corridor: 1.7, sightY: 0.45, edgeHeight: 3 },
+  education: { disk: 4.3, corridor: 2.2, sightY: 0.35, edgeHeight: 2 },
+  experience: { disk: 4.2, corridor: 1.6, sightY: 0.55, edgeHeight: 3.1 },
+  market: { disk: 4.4, corridor: 2, sightY: 0.35, edgeHeight: 1.8 },
+  projects: { disk: 5.8, corridor: 2.7, sightY: 0.18, edgeHeight: 0.8 },
+  hobbies: { disk: 4.1, corridor: 2.1, sightY: 0.3, edgeHeight: 2 },
+  contact: { disk: 5.3, corridor: 2.6, sightY: 0.3, edgeHeight: 1.5 },
+  overview: { disk: 3.2, corridor: 1.3, sightY: 0.45, edgeHeight: 1.7 },
+};
 
 const CLEARINGS = (
   Object.entries(LANDMARKS) as Array<[DestinationId, LandmarkDefinition]>
 ).map(([id, { position }]) => ({
+  id,
   x: position[0],
   z: position[2],
-  radius: id === "projects" ? 4.1 : id === "overview" ? 2.45 : 2.8,
+  radius: PROTECTION[id].disk,
 }));
+
+function districtProfile(x: number, z: number) {
+  const shoreDistance = shorelineZAtX(x) - z;
+  if (shoreDistance < 7) return { density: 0.34, maxHeight: 2.15 };
+  if (z < -14 || x < -24) return { density: 0.72, maxHeight: 5.4 };
+  if (z < -7.6 && x >= -12 && x <= 1) {
+    return { density: 0.58, maxHeight: 3 };
+  }
+  if (x < -12 && z < -5.2) return { density: 0.66, maxHeight: 3.4 };
+  if (z >= -5.5 && x >= -12 && x <= 6) {
+    return { density: 0.58, maxHeight: 3 };
+  }
+  if (x > 6 && z < 1.5) return { density: 0.62, maxHeight: 4 };
+  if (x > -4.5 && x < 8 && z > -7.8 && z < -0.5) {
+    return { density: 0.75, maxHeight: 5.5 };
+  }
+  return { density: 0.64, maxHeight: 4.7 };
+}
+
+function sightlineBodyCap(
+  id: DestinationId,
+  x: number,
+  z: number,
+  width: number,
+  depth: number,
+  rawHeight: number,
+  tone: number,
+) {
+  const landmark = LANDMARKS[id].position;
+  const camera = DEFAULT_VIEW.position;
+  const viewX = camera[0] - landmark[0];
+  const viewZ = camera[2] - landmark[2];
+  const viewLengthSquared = viewX * viewX + viewZ * viewZ;
+  const viewLength = Math.sqrt(viewLengthSquared);
+  const candidateX = x - landmark[0];
+  const candidateZ = z - landmark[2];
+  const progress =
+    (candidateX * viewX + candidateZ * viewZ) / viewLengthSquared;
+
+  if (progress <= 0 || progress >= 0.88) return Number.POSITIVE_INFINITY;
+
+  const radius = Math.hypot(width, depth) * 0.5;
+  const lateralDistance =
+    Math.abs(candidateX * viewZ - candidateZ * viewX) / viewLength;
+  if (lateralDistance > PROTECTION[id].corridor + radius + 0.32) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const nearestProgress = Math.max(0, progress - radius / viewLength);
+  const rayHeight = THREE.MathUtils.lerp(
+    PROTECTION[id].sightY,
+    camera[1],
+    nearestProgress,
+  );
+  const crownAllowance = tone > 0.88 ? 0.8 : tone > 0.43 ? 0.25 + tone * 0.5 : 0.16;
+  const antennaAllowance = tone > 0.84 && rawHeight > 4.2 ? 0.98 : 0;
+  return rayHeight - 0.7 - crownAllowance - antennaAllowance;
+}
+
+function addBuildingWindows(
+  building: Building,
+  random: () => number,
+  steadyWindows: WindowLight[],
+  changingWindows: WindowLight[],
+) {
+  const { depth, height, width, x, z } = building;
+  const floorCount = Math.max(2, Math.floor((height - 0.4) / 0.49));
+  const frontColumns = Math.max(2, Math.floor(width / 0.34));
+  const sideColumns = Math.max(2, Math.floor(depth / 0.34));
+
+  for (let floor = 0; floor < floorCount; floor += 1) {
+    const y = 0.49 + floor * 0.49;
+
+    for (let column = 0; column < frontColumns; column += 1) {
+      if (random() < 0.52) continue;
+      const light: WindowLight = {
+        position: [
+          x + ((column + 0.5) / frontColumns - 0.5) * (width - 0.25),
+          y,
+          z + depth / 2 + 0.012,
+        ],
+        scale: [0.095, 0.135, 0.012],
+        color: random() > 0.24 ? "#f3ba72" : "#72add4",
+      };
+      (random() < 0.12 ? changingWindows : steadyWindows).push(light);
+    }
+
+    for (let column = 0; column < sideColumns; column += 1) {
+      if (random() < 0.58) continue;
+      const light: WindowLight = {
+        position: [
+          x + width / 2 + 0.012,
+          y,
+          z + ((column + 0.5) / sideColumns - 0.5) * (depth - 0.25),
+        ],
+        scale: [0.012, 0.135, 0.095],
+        color: random() > 0.26 ? "#f5c17a" : "#6da7ce",
+      };
+      (random() < 0.12 ? changingWindows : steadyWindows).push(light);
+    }
+  }
+}
 
 function createCityData(): CityData {
   const random = mulberry32(8142027);
@@ -273,87 +415,134 @@ function createCityData(): CityData {
   const steadyWindows: WindowLight[] = [];
   const changingWindows: WindowLight[] = [];
 
-  for (let z = -19; z <= 8; z += 2.25) {
-    for (let x = -22; x <= 21; x += 2.25) {
-      const px = x + (random() - 0.5) * 0.62;
-      const pz = z + (random() - 0.5) * 0.62;
+  for (let z = -22; z <= 9; z += 2.4) {
+    for (let x = -34; x <= 32; x += 2.4) {
+      const px = x + (random() - 0.5) * 0.72;
+      const pz = z + (random() - 0.5) * 0.72;
+      const width = 0.82 + random() * 0.78;
+      const depth = 0.8 + random() * 0.82;
+      const tone = random();
+      const candidateRadius = Math.hypot(width, depth) * 0.5;
       const isClear = CLEARINGS.some(
         (clearing) =>
-          Math.hypot(px - clearing.x, pz - clearing.z) < clearing.radius,
+          Math.hypot(px - clearing.x, pz - clearing.z) <
+          clearing.radius + candidateRadius + 0.18,
       );
       const streetGap =
-        ROAD_X.some((road) => Math.abs(px - road) < 0.66) ||
-        ROAD_Z.some((road) => Math.abs(pz - road) < 0.62);
-      const harbourWater = px > 6.1 && pz > 4.1;
-      const shoreline = pz > 6.7 && px > 2.2;
+        ROAD_X.some((road) => Math.abs(px - road) < 0.78 + width * 0.5) ||
+        ROAD_Z.some((road) => Math.abs(pz - road) < 0.76 + depth * 0.5);
+      const coastalSetback = pz > shorelineZAtX(px) - 4.65;
+      const district = districtProfile(px, pz);
 
       if (
         isClear ||
         streetGap ||
-        shoreline ||
-        (harbourWater && random() < 0.94) ||
-        random() < 0.12
+        coastalSetback ||
+        random() > district.density
       ) {
         continue;
       }
 
       const downtownBias = Math.max(
         0,
-        1 - Math.hypot(px - 1.5, pz + 4) / 23,
+        1 - Math.hypot(px + 1, pz + 5) / 28,
       );
-      const width = 0.95 + random() * 0.9;
-      const depth = 0.9 + random() * 0.92;
-      const height =
-        1.25 + random() * 4.15 + downtownBias * downtownBias * random() * 5.1;
+      const rawHeight =
+        1.15 + random() * 3.85 + downtownBias * downtownBias * random() * 4.8;
+      let height = Math.min(
+        rawHeight,
+        district.maxHeight * THREE.MathUtils.lerp(0.78, 1, tone),
+      );
+
+      for (const clearing of CLEARINGS) {
+        const distance = Math.hypot(px - clearing.x, pz - clearing.z);
+        const ringEnd = clearing.radius + 4.2;
+        if (distance < ringEnd) {
+          const ringMix = THREE.MathUtils.smoothstep(
+            distance,
+            clearing.radius,
+            ringEnd,
+          );
+          height = Math.min(
+            height,
+            THREE.MathUtils.lerp(
+              PROTECTION[clearing.id].edgeHeight,
+              height,
+              ringMix,
+            ),
+          );
+        }
+      }
+
+      let protectedSightline = false;
+      for (const id of Object.keys(LANDMARKS) as DestinationId[]) {
+        const cap = sightlineBodyCap(
+          id,
+          px,
+          pz,
+          width,
+          depth,
+          rawHeight,
+          tone,
+        );
+        if (Number.isFinite(cap) && cap < height) {
+          height = cap;
+          protectedSightline = true;
+        }
+      }
+
+      if (height < 1.12) continue;
+
       const building: Building = {
         x: px,
         z: pz,
         width,
         depth,
         height,
-        tone: random(),
+        tone,
+        protectedSightline,
       };
       buildings.push(building);
-
-      const floorCount = Math.max(2, Math.floor((height - 0.4) / 0.49));
-      const frontColumns = Math.max(2, Math.floor(width / 0.34));
-      const sideColumns = Math.max(2, Math.floor(depth / 0.34));
-
-      for (let floor = 0; floor < floorCount; floor += 1) {
-        const y = 0.49 + floor * 0.49;
-
-        for (let column = 0; column < frontColumns; column += 1) {
-          if (random() < 0.38) continue;
-          const light: WindowLight = {
-            position: [
-              px +
-                ((column + 0.5) / frontColumns - 0.5) * (width - 0.25),
-              y,
-              pz + depth / 2 + 0.012,
-            ],
-            scale: [0.095, 0.135, 0.012],
-            color: random() > 0.24 ? "#f3ba72" : "#72add4",
-          };
-          (random() < 0.12 ? changingWindows : steadyWindows).push(light);
-        }
-
-        for (let column = 0; column < sideColumns; column += 1) {
-          if (random() < 0.46) continue;
-          const light: WindowLight = {
-            position: [
-              px + width / 2 + 0.012,
-              y,
-              pz +
-                ((column + 0.5) / sideColumns - 0.5) * (depth - 0.25),
-            ],
-            scale: [0.012, 0.135, 0.095],
-            color: random() > 0.26 ? "#f5c17a" : "#6da7ce",
-          };
-          (random() < 0.12 ? changingWindows : steadyWindows).push(light);
-        }
-      }
+      addBuildingWindows(building, random, steadyWindows, changingWindows);
     }
   }
+
+  // These are the three neighboring buildings displaced by the gym's
+  // one-block move. Keeping their original proportions makes this a genuine
+  // block swap instead of leaving the former gym lot empty.
+  const relocatedGymBlock: Building[] = [
+    {
+      x: -25.24,
+      z: -17.16,
+      width: 1.24,
+      depth: 1.11,
+      height: 2.18,
+      tone: 0.35,
+      protectedSightline: false,
+    },
+    {
+      x: -23.15,
+      z: -17.01,
+      width: 1.48,
+      depth: 0.93,
+      height: 1.69,
+      tone: 0.624,
+      protectedSightline: false,
+    },
+    {
+      x: -22.89,
+      z: -15.04,
+      width: 0.86,
+      depth: 1.5,
+      height: 4.76,
+      tone: 0.618,
+      protectedSightline: false,
+    },
+  ];
+  relocatedGymBlock.forEach((building) => {
+    buildings.push(building);
+    addBuildingWindows(building, random, steadyWindows, changingWindows);
+  });
 
   return { buildings, steadyWindows, changingWindows };
 }
@@ -521,17 +710,24 @@ function SkylineArchitecture({ buildings }: { buildings: Building[] }) {
   const crownBuildings = useMemo(
     () =>
       buildings.filter(
-        (building) => building.tone > 0.43 && building.tone <= 0.88,
+        (building) =>
+          !building.protectedSightline &&
+          building.tone > 0.43 &&
+          building.tone <= 0.88,
       ),
     [buildings],
   );
   const roundCrownBuildings = useMemo(
-    () => buildings.filter((building) => building.tone > 0.88),
+    () =>
+      buildings.filter(
+        (building) => !building.protectedSightline && building.tone > 0.88,
+      ),
     [buildings],
   );
   const roofEquipment = useMemo<InstanceTransform[]>(
     () =>
       buildings.flatMap((building) => {
+        if (building.protectedSightline) return [];
         const equipment: InstanceTransform[] = [
           {
             position: [
@@ -564,7 +760,12 @@ function SkylineArchitecture({ buildings }: { buildings: Building[] }) {
   const antennas = useMemo<InstanceTransform[]>(
     () =>
       buildings
-        .filter((building) => building.tone > 0.84 && building.height > 4.2)
+        .filter(
+          (building) =>
+            !building.protectedSightline &&
+            building.tone > 0.84 &&
+            building.height > 4.2,
+        )
         .map((building) => ({
           position: [building.x, building.height + 0.48, building.z] as Point,
           scale: [0.018, 0.48, 0.018] as Point,
@@ -586,7 +787,12 @@ function SkylineArchitecture({ buildings }: { buildings: Building[] }) {
   const facadeFins = useMemo<InstanceTransform[]>(
     () =>
       buildings
-        .filter((building) => building.tone > 0.66 && building.height > 3)
+        .filter(
+          (building) =>
+            !building.protectedSightline &&
+            building.tone > 0.66 &&
+            building.height > 3,
+        )
         .flatMap((building) => [
           {
             position: [
@@ -679,81 +885,108 @@ function SkylineArchitecture({ buildings }: { buildings: Building[] }) {
 }
 
 function Streets() {
+  const horizontalRoads = useMemo(
+    () =>
+      ROAD_Z.map((z) => {
+        const end = horizontalRoadEnd(z);
+        return {
+          axis: "x" as const,
+          center: (CITY_MIN_X + end) * 0.5,
+          fixed: z,
+          length: Math.max(0, end - CITY_MIN_X),
+          start: CITY_MIN_X,
+          end,
+        };
+      }),
+    [],
+  );
+  const verticalRoads = useMemo(
+    () =>
+      ROAD_X.map((x) => {
+        const end = verticalRoadEnd(x);
+        return {
+          axis: "z" as const,
+          center: (CITY_MIN_Z + end) * 0.5,
+          fixed: x,
+          length: end - CITY_MIN_Z,
+          start: CITY_MIN_Z,
+          end,
+        };
+      }),
+    [],
+  );
   const roadMarkings = useMemo<InstanceTransform[]>(() => {
     const markings: InstanceTransform[] = [];
-    ROAD_Z.forEach((z) => {
-      for (let x = -24; x <= 24; x += 1.6) {
-        if (z === 4.8 && x > 2.7) continue;
+    horizontalRoads.forEach((road) => {
+      for (let x = road.start + 0.8; x <= road.end; x += 1.8) {
         markings.push({
-          position: [x, 0.037, z],
-          scale: [0.46, 0.012, 0.014],
+          position: [x, 0.071, road.fixed],
+          scale: [0.48, 0.012, 0.015],
         });
       }
     });
-    ROAD_X.forEach((x) => {
-      for (let z = -19; z <= 9; z += 1.6) {
-        if (x === 8.55 && z > 3.8) continue;
+    verticalRoads.forEach((road) => {
+      for (let z = road.start + 0.8; z <= road.end; z += 1.8) {
         markings.push({
-          position: [x, 0.039, z],
-          scale: [0.014, 0.012, 0.46],
+          position: [road.fixed, 0.072, z],
+          scale: [0.015, 0.012, 0.48],
         });
       }
     });
     return markings;
-  }, []);
+  }, [horizontalRoads, verticalRoads]);
   const curbLines = useMemo<InstanceTransform[]>(
     () => [
-      ...ROAD_Z.flatMap((z) => [
+      ...horizontalRoads.flatMap((road) => [
         {
-          position: [z === 4.8 ? -11.5 : 0, 0.048, z - 0.56] as Point,
-          scale: [z === 4.8 ? 29 : 51, 0.012, 0.018] as Point,
+          position: [road.center, 0.075, road.fixed - 0.66] as Point,
+          scale: [road.length, 0.075, 0.08] as Point,
         },
         {
-          position: [z === 4.8 ? -11.5 : 0, 0.048, z + 0.56] as Point,
-          scale: [z === 4.8 ? 29 : 51, 0.012, 0.018] as Point,
+          position: [road.center, 0.075, road.fixed + 0.66] as Point,
+          scale: [road.length, 0.075, 0.08] as Point,
         },
       ]),
-      ...ROAD_X.flatMap((x) => [
+      ...verticalRoads.flatMap((road) => [
         {
-          position: [x - 0.56, 0.049, x === 8.55 ? -7.6 : -5] as Point,
-          scale: [0.018, 0.012, x === 8.55 ? 22.8 : 29] as Point,
+          position: [road.fixed - 0.66, 0.075, road.center] as Point,
+          scale: [0.08, 0.075, road.length] as Point,
         },
         {
-          position: [x + 0.56, 0.049, x === 8.55 ? -7.6 : -5] as Point,
-          scale: [0.018, 0.012, x === 8.55 ? 22.8 : 29] as Point,
+          position: [road.fixed + 0.66, 0.075, road.center] as Point,
+          scale: [0.08, 0.075, road.length] as Point,
         },
       ]),
     ],
-    [],
+    [horizontalRoads, verticalRoads],
   );
   const crosswalks = useMemo<InstanceTransform[]>(
     () =>
       ROAD_X.flatMap((x) =>
         ROAD_Z.flatMap((z) =>
-          x === 8.55 && z === 4.8
-            ? []
-            : Array.from({ length: 5 }, (_, index) => ({
-                position: [x - 0.42 + index * 0.21, 0.052, z + 0.76] as Point,
-                scale: [0.055, 0.012, 0.22] as Point,
-              })),
+          z < shorelineZAtX(x) - 4.5
+            ? Array.from({ length: 6 }, (_, index) => ({
+                position: [x - 0.47 + index * 0.19, 0.094, z + 0.82] as Point,
+                scale: [0.055, 0.012, 0.24] as Point,
+              }))
+            : [],
         ),
       ),
     [],
   );
   const lampPoles = useMemo<InstanceTransform[]>(() => {
     const poles: InstanceTransform[] = [];
-    ROAD_Z.forEach((z, roadIndex) => {
-      for (let x = -20; x <= 20; x += 4.2) {
-        if (z === 4.8 && x > 2.7) continue;
-        const side = (Math.round(x / 4.2) + roadIndex) % 2 === 0 ? -1 : 1;
+    horizontalRoads.forEach((road, roadIndex) => {
+      for (let x = road.start + 2; x <= road.end - 1; x += 4.4) {
+        const side = (Math.round(x / 4.4) + roadIndex) % 2 === 0 ? -1 : 1;
         poles.push({
-          position: [x, 0.5, z + side * 0.72],
-          scale: [0.018, 0.5, 0.018],
+          position: [x, 0.56, road.fixed + side * 0.82],
+          scale: [0.018, 0.56, 0.018],
         });
       }
     });
     return poles;
-  }, []);
+  }, [horizontalRoads]);
   const lampHeads = useMemo<InstanceTransform[]>(
     () =>
       lampPoles.map((pole) => ({
@@ -765,24 +998,36 @@ function Streets() {
 
   return (
     <group>
-      {ROAD_Z.map((z) => (
+      {horizontalRoads.map((road) => (
         <mesh
-          key={`road-z-${z}`}
-          position={[z === 4.8 ? -11.5 : 0, 0.006, z]}
+          key={`road-z-${road.fixed}`}
+          position={[road.center, 0.04, road.fixed]}
           receiveShadow
         >
-          <boxGeometry args={[z === 4.8 ? 29 : 52, 0.035, 1.2]} />
-          <meshStandardMaterial color="#02060c" roughness={0.22} metalness={0.56} />
+          <boxGeometry args={[road.length, 0.055, 1.32]} />
+          <meshPhysicalMaterial
+            clearcoat={0.42}
+            clearcoatRoughness={0.3}
+            color="#02060c"
+            metalness={0}
+            roughness={0.38}
+          />
         </mesh>
       ))}
-      {ROAD_X.map((x) => (
+      {verticalRoads.map((road) => (
         <mesh
-          key={`road-x-${x}`}
-          position={[x, 0.008, x === 8.55 ? -7.6 : -5]}
+          key={`road-x-${road.fixed}`}
+          position={[road.fixed, 0.041, road.center]}
           receiveShadow
         >
-          <boxGeometry args={[1.2, 0.038, x === 8.55 ? 22.8 : 30]} />
-          <meshStandardMaterial color="#02060c" roughness={0.22} metalness={0.56} />
+          <boxGeometry args={[1.32, 0.055, road.length]} />
+          <meshPhysicalMaterial
+            clearcoat={0.42}
+            clearcoatRoughness={0.3}
+            color="#02060c"
+            metalness={0}
+            roughness={0.38}
+          />
         </mesh>
       ))}
       <DetailInstances items={roadMarkings} color="#466076" opacity={0.45} />
@@ -793,17 +1038,6 @@ function Streets() {
     </group>
   );
 }
-
-const HARBOUR_BOATS = [
-  [7.1, 9.7, -0.18, 0.82, true],
-  [9.2, 12.1, 0.24, 0.7, false],
-  [11.2, 10.5, -0.08, 0.62, true],
-  [14.2, 13.4, 0.18, 0.78, true],
-  [16.8, 9.4, -0.34, 0.66, false],
-  [19.5, 15.5, 0.08, 0.9, true],
-  [21.2, 11.8, -0.12, 0.56, false],
-  [8.2, 16.8, 0.16, 0.68, true],
-] as const;
 
 function MarinaBoat({
   position,
@@ -873,73 +1107,11 @@ function MarinaBoat({
   );
 }
 
-function WaterSurface({ reducedMotion }: { reducedMotion: boolean }) {
-  const shimmer = useRef<THREE.Group>(null);
-
-  useFrame(({ clock }) => {
-    if (!shimmer.current) return;
-    shimmer.current.position.x = reducedMotion
-      ? 0
-      : Math.sin(clock.getElapsedTime() * 0.16) * 1.1;
-  });
-
-  return (
-    <group>
-      <mesh position={[15, 0.012, 12.3]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[24, 17]} />
-        <meshPhysicalMaterial
-          color="#031526"
-          clearcoat={1}
-          clearcoatRoughness={0.11}
-          metalness={0.62}
-          roughness={0.17}
-        />
-      </mesh>
-      <group ref={shimmer} position={[0, 0.032, 0]}>
-        {Array.from({ length: 13 }, (_, index) => (
-          <mesh
-            key={index}
-            position={[
-              5.4 + (index % 4) * 5.4,
-              0.008,
-              5.8 + Math.floor(index / 4) * 3.9 + (index % 2) * 0.45,
-            ]}
-            rotation-x={-Math.PI / 2}
-          >
-            <planeGeometry args={[2.7 + (index % 3) * 1.2, 0.022]} />
-            <meshBasicMaterial
-              color={index % 3 === 0 ? "#4a8eb3" : "#1f5272"}
-              opacity={0.34}
-              transparent
-              toneMapped={false}
-            />
-          </mesh>
-        ))}
-      </group>
-      <mesh position={[15, 0.085, 4.05]}>
-        <boxGeometry args={[23.6, 0.15, 0.34]} />
-        <meshStandardMaterial color="#27333c" metalness={0.54} roughness={0.44} />
-      </mesh>
-      <mesh position={[15, 0.14, 4.25]}>
-        <boxGeometry args={[23.6, 0.035, 0.045]} />
-        <meshBasicMaterial color="#6ca5c1" opacity={0.42} transparent />
-      </mesh>
-      {HARBOUR_BOATS.map(([x, z, rotation, scale, sail], index) => (
-        <MarinaBoat
-          key={index}
-          position={[x, 0.04, z]}
-          rotation={rotation}
-          sail={sail}
-          scale={scale}
-        />
-      ))}
-    </group>
-  );
-}
-
 type TrafficLight = {
   axis: "x" | "z";
   lane: number;
+  start: number;
+  end: number;
   direction: 1 | -1;
   phase: number;
   speed: number;
@@ -963,27 +1135,26 @@ function TrafficBatch({
     const elapsed = reducedMotion ? 0 : clock.getElapsedTime();
 
     lights.forEach((light, index) => {
-      const progress = (light.phase + elapsed * light.speed) % 1;
-      const value = THREE.MathUtils.lerp(-23, 23, light.direction === 1 ? progress : 1 - progress);
-      const verticalPosition = THREE.MathUtils.lerp(
-        -18,
-        8,
-        value / 46 + 0.5,
+      const cycle = (light.phase * 2 + elapsed * light.speed * 2) % 2;
+      const progress = cycle <= 1 ? cycle : 2 - cycle;
+      const directedProgress = light.direction === 1 ? progress : 1 - progress;
+      const horizontalPosition = THREE.MathUtils.lerp(
+        light.start,
+        light.end,
+        directedProgress,
       );
-      const overHarbour =
-        (light.axis === "x" && light.lane > 4 && value > 3) ||
-        (light.axis === "z" && light.lane > 8 && verticalPosition > 3.8);
+      const verticalPosition = THREE.MathUtils.lerp(
+        light.start,
+        light.end,
+        directedProgress,
+      );
       helper.position.set(
-        light.axis === "x" ? value : light.lane,
+        light.axis === "x" ? horizontalPosition : light.lane,
         0.12,
         light.axis === "x" ? light.lane : verticalPosition,
       );
-      helper.rotation.set(0, light.axis === "x" ? 0 : Math.PI / 2, 0);
-      helper.scale.set(
-        overHarbour ? 0 : 0.08,
-        overHarbour ? 0 : 0.045,
-        overHarbour ? 0 : 0.28,
-      );
+      helper.rotation.set(0, light.axis === "x" ? Math.PI / 2 : 0, 0);
+      helper.scale.set(0.08, 0.045, 0.28);
       helper.updateMatrix();
       mesh.current?.setMatrixAt(index, helper.matrix);
     });
@@ -1007,12 +1178,32 @@ function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
     const lanes: TrafficLight[] = [];
     const roadLanes = [
       ...ROAD_Z.flatMap((road) => [
-        { axis: "x" as const, lane: road - 0.25 },
-        { axis: "x" as const, lane: road + 0.25 },
+        {
+          axis: "x" as const,
+          lane: road - 0.25,
+          start: CITY_MIN_X + 0.55,
+          end: horizontalRoadEnd(road) - 0.55,
+        },
+        {
+          axis: "x" as const,
+          lane: road + 0.25,
+          start: CITY_MIN_X + 0.55,
+          end: horizontalRoadEnd(road) - 0.55,
+        },
       ]),
       ...ROAD_X.flatMap((road) => [
-        { axis: "z" as const, lane: road - 0.25 },
-        { axis: "z" as const, lane: road + 0.25 },
+        {
+          axis: "z" as const,
+          lane: road - 0.25,
+          start: CITY_MIN_Z + 0.55,
+          end: verticalRoadEnd(road) - 0.55,
+        },
+        {
+          axis: "z" as const,
+          lane: road + 0.25,
+          start: CITY_MIN_Z + 0.55,
+          end: verticalRoadEnd(road) - 0.55,
+        },
       ]),
     ];
     for (let index = 0; index < 48; index += 1) {
@@ -1051,14 +1242,42 @@ type RouteAsset = {
   glow: THREE.TubeGeometry;
 };
 
-const ROUTE_BENDS: Record<Exclude<DestinationId, "overview">, Point> = {
-  about: [4.5, 0.13, -4.7],
-  education: [-1.4, 0.13, -5.8],
-  experience: [-7.4, 0.13, -0.7],
-  market: [2.7, 0.13, -2.2],
-  projects: [6.1, 0.13, 4.2],
-  hobbies: [-5.4, 0.13, -3.7],
-  contact: [1.1, 0.13, 2.15],
+const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
+  about: [
+    [-3, 0.13, -5.5],
+    [15, 0.13, -5.5],
+    [15, 0.13, -12],
+    [19, 0.13, -12],
+  ],
+  education: [
+    [-7, 0.13, -5.5],
+    [-7, 0.13, -12],
+  ],
+  experience: [
+    [-7, 0.13, 1],
+    [-19, 0.13, 1],
+    [-20, 0.13, -3],
+  ],
+  market: [
+    [-3, 0.13, -5.5],
+    [6, 0.13, -5.5],
+    [6, 0.13, -8.75],
+  ],
+  projects: [
+    [-3, 0.13, 1],
+    [6, 0.13, 1],
+    [6, 0.13, 5.8],
+  ],
+  hobbies: [
+    [-7, 0.13, -5.5],
+    [-11, 0.13, -5.5],
+    [-11, 0.13, -12],
+    [-15, 0.13, -12],
+  ],
+  contact: [
+    [-3, 0.13, 1],
+    [1.5, 0.13, 1],
+  ],
 };
 
 function createRoutes(): RouteAsset[] {
@@ -1067,19 +1286,13 @@ function createRoutes(): RouteAsset[] {
     0.13,
     LANDMARKS.overview.position[2],
   );
-  return (Object.keys(ROUTE_BENDS) as Array<Exclude<DestinationId, "overview">>).map(
+  return (Object.keys(ROUTE_WAYPOINTS) as Array<Exclude<DestinationId, "overview">>).map(
     (id) => {
       const destination = LANDMARKS[id].position;
-      const bend = ROUTE_BENDS[id];
       const curve = new THREE.CatmullRomCurve3(
         [
           origin.clone(),
-          new THREE.Vector3(...bend),
-          new THREE.Vector3(
-            THREE.MathUtils.lerp(bend[0], destination[0], 0.55),
-            0.13,
-            THREE.MathUtils.lerp(bend[2], destination[2], 0.55),
-          ),
+          ...ROUTE_WAYPOINTS[id].map((point) => new THREE.Vector3(...point)),
           new THREE.Vector3(destination[0], 0.13, destination[2]),
         ],
         false,
@@ -1122,7 +1335,8 @@ function RouteSignals({
     if (!mesh.current) return;
     const elapsed = reducedMotion ? 0 : clock.getElapsedTime();
     signals.forEach((signal, index) => {
-      const progress = (signal.phase + elapsed * signal.speed) % 1;
+      const cycle = (signal.phase * 2 + elapsed * signal.speed * 2) % 2;
+      const progress = cycle <= 1 ? cycle : 2 - cycle;
       signal.route.curve.getPointAt(progress, point);
       const active = selected === signal.route.id || hovered === signal.route.id;
       helper.position.copy(point);
@@ -1217,10 +1431,9 @@ function FogBanks({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <group ref={group}>
       {[
-        [-11, 1.1, 1, 9, 0.55, 2.5],
-        [10, 0.8, -8, 12, 0.45, 3],
-        [-3, 1.8, -14, 14, 0.6, 2.7],
-        [6, 0.45, 10, 10, 0.34, 2.2],
+        [-11, 1.1, 1, 7, 0.4, 2],
+        [11, 0.8, -6, 8, 0.32, 2.4],
+        [8, 0.45, 11, 7, 0.25, 1.8],
       ].map(([x, y, z, sx, sy, sz], index) => (
         <mesh
           key={index}
@@ -1232,7 +1445,7 @@ function FogBanks({ reducedMotion }: { reducedMotion: boolean }) {
           <meshBasicMaterial
             color="#6e93b5"
             depthWrite={false}
-            opacity={0.022}
+            opacity={0.006}
             transparent
           />
         </mesh>
@@ -1783,7 +1996,7 @@ function EatonCentre() {
   );
 }
 
-function HarbourfrontMarina({ reducedMotion }: { reducedMotion: boolean }) {
+function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
   const boats = useRef<THREE.Group>(null);
 
   useFrame(({ clock }) => {
@@ -1851,38 +2064,11 @@ function HarbourfrontMarina({ reducedMotion }: { reducedMotion: boolean }) {
   );
 }
 
-function ClimbingGym() {
-  const holds = [
-    [-1.55, 0.65, "#ffba55"],
-    [-1.05, 1.15, "#58c9ff"],
-    [-0.62, 0.48, "#ef6f62"],
-    [-0.25, 1.52, "#ffba55"],
-    [0.2, 0.82, "#58c9ff"],
-    [0.65, 1.7, "#ef6f62"],
-    [1.05, 1.05, "#ffba55"],
-    [1.48, 0.52, "#58c9ff"],
-  ] as const;
-
+function ClimbingGymDistrict() {
   return (
-    <group>
-      <mesh position={[0, 1.18, 0]} castShadow>
-        <boxGeometry args={[4.1, 2.35, 2.7]} />
-        <meshStandardMaterial color="#342c2b" roughness={0.7} metalness={0.18} />
-      </mesh>
-      <mesh position={[0, 2.43, 0]} rotation-y={Math.PI / 4} scale={[1.85, 0.62, 1.85]}>
-        <coneGeometry args={[1, 1, 4]} />
-        <meshStandardMaterial color="#171e25" roughness={0.62} metalness={0.42} />
-      </mesh>
-      <mesh position={[0, 1.2, 1.39]} rotation-x={-0.12}>
-        <planeGeometry args={[3.6, 1.95]} />
-        <meshStandardMaterial color="#5d4f43" roughness={0.88} />
-      </mesh>
-      {holds.map(([x, y, color], index) => (
-        <mesh key={index} position={[x, y, 1.46]} scale={[1.2, 0.78, 0.5]}>
-          <sphereGeometry args={[0.105, 8, 6]} />
-          <meshBasicMaterial color={color} toneMapped={false} />
-        </mesh>
-      ))}
+    <group scale={0.66}>
+      <ClimbingGymSurroundings />
+      <ClimbingGymDetailed includeStreetDetails={false} />
     </group>
   );
 }
@@ -1972,10 +2158,10 @@ function Landmarks(props: CitySceneProps) {
         <EatonCentre />
       </InteractiveLandmark>
       <InteractiveLandmark id="projects" {...props}>
-        <HarbourfrontMarina reducedMotion={props.reducedMotion} />
+        <Harvourfront reducedMotion={props.reducedMotion} />
       </InteractiveLandmark>
       <InteractiveLandmark id="hobbies" {...props}>
-        <ClimbingGym />
+        <ClimbingGymDistrict />
       </InteractiveLandmark>
       <InteractiveLandmark id="contact" {...props}>
         <UnionStation />
@@ -1991,7 +2177,7 @@ function CityWorld(props: CitySceneProps) {
   return (
     <>
       <color attach="background" args={[MIDNIGHT]} />
-      <fog attach="fog" args={["#030a15", 23, 64]} />
+      <fog attach="fog" args={["#030a15", 60, 135]} />
       <ambientLight color="#6e8eae" intensity={0.34} />
       <hemisphereLight args={["#5b80aa", "#020408", 0.66]} />
       <directionalLight
@@ -2000,28 +2186,25 @@ function CityWorld(props: CitySceneProps) {
         intensity={1.25}
         position={[-11, 20, 14]}
         shadow-bias={-0.00035}
-        shadow-mapSize-height={1024}
-        shadow-mapSize-width={1024}
+        shadow-camera-bottom={-30}
+        shadow-camera-far={75}
+        shadow-camera-left={-30}
+        shadow-camera-near={1}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-mapSize-height={2048}
+        shadow-mapSize-width={2048}
+        shadow-normalBias={0.035}
       />
       <pointLight color="#247fc7" distance={25} intensity={38} position={[-1, 5, 1]} />
-      <pointLight color="#e7a45b" distance={13} intensity={22} position={[-0.6, 4.5, -11.5]} />
-      <pointLight color="#78be43" distance={11} intensity={17} position={[-13.2, 5.5, -2.8]} />
-      <pointLight color="#e2a45c" distance={11} intensity={18} position={[11.1, 5.6, -10.2]} />
-      <pointLight color="#378fbc" distance={14} intensity={20} position={[12.4, 2.2, 7.7]} />
+      <pointLight color="#e7a45b" distance={13} intensity={22} position={[-7, 4.5, -15.25]} />
+      <pointLight color="#78be43" distance={12} intensity={17} position={[-20, 5.5, -3]} />
+      <pointLight color="#e2a45c" distance={12} intensity={18} position={[19, 5.6, -15.25]} />
+      <pointLight color="#378fbc" distance={16} intensity={20} position={[6, 2.2, 8]} />
+      <pointLight color="#f0b66f" decay={2} distance={10} intensity={13} position={[-15, 3.2, -14.1]} />
 
-      <mesh position={[0, -0.025, -5]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[56, 29]} />
-        <meshPhysicalMaterial
-          clearcoat={0.82}
-          clearcoatRoughness={0.2}
-          color="#050a11"
-          metalness={0.62}
-          roughness={0.27}
-        />
-      </mesh>
-
+      <CoastalGround reducedMotion={props.reducedMotion} />
       <Streets />
-      <WaterSurface reducedMotion={props.reducedMotion} />
       <ProceduralSkyline reducedMotion={props.reducedMotion} />
       <RouteNetwork
         hovered={props.hovered}
@@ -2041,8 +2224,8 @@ export default function CityScene(props: CitySceneProps) {
     <Canvas
       aria-hidden="true"
       camera={{
-        far: 100,
-        fov: 37,
+        far: 140,
+        fov: 32,
         near: 0.1,
         position: [...DEFAULT_VIEW.position],
       }}
@@ -2055,6 +2238,7 @@ export default function CityScene(props: CitySceneProps) {
         toneMapping: THREE.ACESFilmicToneMapping,
       }}
       onCreated={({ gl }) => {
+        gl.shadowMap.type = THREE.PCFSoftShadowMap;
         gl.toneMappingExposure = 1.06;
       }}
       onPointerLeave={() => props.onHover(null)}

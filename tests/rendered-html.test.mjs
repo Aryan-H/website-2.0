@@ -26,7 +26,7 @@ test("renders Aryan's portfolio shell and essential content", async () => {
   assert.match(html, /UofTMarket/i);
   assert.match(html, /My apartment/i);
   assert.match(html, /Shopify office/i);
-  assert.match(html, /Harbourfront marina/i);
+  assert.match(html, /Harvourfront/i);
   assert.match(html, /aryan-hussain-resume\.pdf/i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });

@@ -501,7 +501,7 @@ function QuickView({
             ))}
           </div>
           <button className="section-explore" onClick={() => onExplore("projects")}>
-            Visit Harbourfront marina <ArrowUpRight size={15} />
+            Visit Harvourfront <ArrowUpRight size={15} />
           </button>
         </section>
 
