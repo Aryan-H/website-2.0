@@ -25,6 +25,7 @@ import CoastalGround, {
   shorelineZAtX,
 } from "./three/CoastalGround";
 import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
+import UofTCampusDetailed from "./three/UofTCampusDetailed";
 import UnionRailCorridor from "./three/UnionRailCorridor";
 import UnionStationDetailed from "./three/UnionStationDetailed";
 
@@ -92,7 +93,7 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
   },
   education: {
     position: [-7, 0, -15.25],
-    labelPosition: [0, 5.5, 0],
+    labelPosition: [0, 6.15, 0],
     number: "02",
     title: "Education",
     landmark: "UofT campus",
@@ -310,6 +311,9 @@ type CityData = {
 const ROAD_Z = [-18.5, -12, -5.5, 1] as const;
 const ROAD_X = WATERFRONT_STREET_X;
 const RAIL_DISTRICT_INLAND_EDGE_Z = ROAD_Z[ROAD_Z.length - 1] + 0.66;
+const UOFT_FIELD_ROAD_Z = -12;
+const UOFT_FIELD_MIN_X = -10.34;
+const UOFT_FIELD_MAX_X = -3.66;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
@@ -328,6 +332,16 @@ function horizontalRoadEnd(z: number) {
   // The southernmost east-west street now terminates cleanly at the x=15
   // waterfront street instead of drifting into the diagonal shoreline.
   return z === 1 ? 15.66 : inlandRoadEndX(z);
+}
+
+function horizontalRoadSpans(z: number) {
+  const end = horizontalRoadEnd(z);
+  if (z !== UOFT_FIELD_ROAD_Z) return [{ start: CITY_MIN_X, end }];
+
+  return [
+    { start: CITY_MIN_X, end: UOFT_FIELD_MIN_X },
+    { start: UOFT_FIELD_MAX_X, end },
+  ].filter((span) => span.end - span.start > 0.5);
 }
 
 function verticalRoadEnd(x: number) {
@@ -545,6 +559,17 @@ function blocksUnionRailCorridor(building: Building) {
   return false;
 }
 
+function blocksUofTFrontField(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > UOFT_FIELD_MIN_X &&
+    building.x - halfWidth < UOFT_FIELD_MAX_X &&
+    building.z + halfDepth > -12.2 &&
+    building.z - halfDepth < -6.15
+  );
+}
+
 function createCityData(): CityData {
   const random = mulberry32(8142027);
   const buildings: Building[] = [];
@@ -641,7 +666,7 @@ function createCityData(): CityData {
         tone,
         protectedSightline,
       };
-      if (blocksUnionRailCorridor(building)) {
+      if (blocksUnionRailCorridor(building) || blocksUofTFrontField(building)) {
         // Consume the same deterministic window RNG as before so removing the
         // rail obstructions cannot reshuffle unrelated skyline buildings.
         addBuildingWindows(
@@ -1046,17 +1071,16 @@ function SkylineArchitecture({ buildings }: { buildings: Building[] }) {
 function Streets() {
   const horizontalRoads = useMemo(
     () =>
-      ROAD_Z.map((z) => {
-        const end = horizontalRoadEnd(z);
-        return {
+      ROAD_Z.flatMap((z) =>
+        horizontalRoadSpans(z).map(({ end, start }) => ({
           axis: "x" as const,
-          center: (CITY_MIN_X + end) * 0.5,
+          center: (start + end) * 0.5,
           fixed: z,
-          length: Math.max(0, end - CITY_MIN_X),
-          start: CITY_MIN_X,
+          length: Math.max(0, end - start),
+          start,
           end,
-        };
-      }),
+        })),
+      ),
     [],
   );
   const verticalRoads = useMemo(
@@ -1167,7 +1191,7 @@ function Streets() {
     <group>
       {horizontalRoads.map((road) => (
         <mesh
-          key={`road-z-${road.fixed}`}
+          key={`road-z-${road.fixed}-${road.start}`}
           position={[road.center, 0.04, road.fixed]}
           receiveShadow
         >
@@ -1344,20 +1368,22 @@ function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
   const lights = useMemo<TrafficLight[]>(() => {
     const lanes: TrafficLight[] = [];
     const roadLanes = [
-      ...ROAD_Z.flatMap((road) => [
-        {
-          axis: "x" as const,
-          lane: road - 0.25,
-          start: CITY_MIN_X + 0.55,
-          end: horizontalRoadEnd(road) - 0.55,
-        },
-        {
-          axis: "x" as const,
-          lane: road + 0.25,
-          start: CITY_MIN_X + 0.55,
-          end: horizontalRoadEnd(road) - 0.55,
-        },
-      ]),
+      ...ROAD_Z.flatMap((road) =>
+        horizontalRoadSpans(road).flatMap(({ end, start }) => [
+          {
+            axis: "x" as const,
+            lane: road - 0.25,
+            start: start + 0.55,
+            end: end - 0.55,
+          },
+          {
+            axis: "x" as const,
+            lane: road + 0.25,
+            start: start + 0.55,
+            end: end - 0.55,
+          },
+        ]),
+      ),
       ...ROAD_X.filter((x) => x !== CN_ROGERS_DIVIDER_X).flatMap((x) =>
         verticalRoadSpans(x).flatMap(({ end, start }) => [
           {
@@ -1861,82 +1887,6 @@ function ApartmentTower() {
   );
 }
 
-function UofTCampus() {
-  const windows = useMemo<InstanceTransform[]>(
-    () =>
-      [-2.12, -1.52, -0.92, 0.92, 1.52, 2.12].flatMap((x) => [
-        {
-          position: [x, 0.72, 1.385] as Point,
-          scale: [0.11, 0.27, 0.025] as Point,
-        },
-        {
-          position: [x, 1.22, 1.385] as Point,
-          scale: [0.11, 0.22, 0.025] as Point,
-        },
-      ]),
-    [],
-  );
-  const buttresses = useMemo<InstanceTransform[]>(
-    () =>
-      [-2.5, -1.75, -1, 1, 1.75, 2.5].map((x) => ({
-        position: [x, 0.72, 1.48] as Point,
-        scale: [0.08, 0.72, 0.13] as Point,
-      })),
-    [],
-  );
-
-  return (
-    <group>
-      <mesh position={[0, 0.08, 1.95]}>
-        <boxGeometry args={[5.8, 0.12, 1.1]} />
-        <meshStandardMaterial color="#27323a" roughness={0.72} />
-      </mesh>
-      <mesh position={[0, 0.82, 0]} castShadow>
-        <boxGeometry args={[5.5, 1.64, 2.75]} />
-        <meshStandardMaterial color="#625648" roughness={0.86} />
-      </mesh>
-      <mesh position={[-1.65, 1.78, 0]} castShadow>
-        <coneGeometry args={[1.28, 1.16, 4]} />
-        <meshStandardMaterial color="#202c31" roughness={0.78} metalness={0.16} />
-      </mesh>
-      <mesh position={[1.65, 1.78, 0]} castShadow>
-        <coneGeometry args={[1.28, 1.16, 4]} />
-        <meshStandardMaterial color="#202c31" roughness={0.78} metalness={0.16} />
-      </mesh>
-      <mesh position={[0, 1.73, 0.15]} castShadow>
-        <boxGeometry args={[1.28, 3.46, 1.55]} />
-        <meshStandardMaterial color="#756755" roughness={0.86} />
-      </mesh>
-      <mesh position={[0, 3.64, 0.15]} rotation-y={Math.PI / 4}>
-        <coneGeometry args={[0.92, 1.72, 4]} />
-        <meshStandardMaterial color="#17262c" roughness={0.73} metalness={0.14} />
-      </mesh>
-      <mesh position={[0, 2.27, 0.94]} rotation-x={Math.PI / 2}>
-        <cylinderGeometry args={[0.27, 0.27, 0.055, 24]} />
-        <meshStandardMaterial color="#d0bd96" roughness={0.7} />
-      </mesh>
-      <mesh position={[0, 1.18, 0.94]}>
-        <boxGeometry args={[0.42, 0.82, 0.045]} />
-        <meshBasicMaterial color="#64a5c5" opacity={0.72} transparent toneMapped={false} />
-      </mesh>
-      <DetailInstances items={windows} color="#eab978" opacity={0.75} />
-      <DetailInstances items={buttresses} color="#83745f" opacity={1} />
-      {[-2.7, 2.7].map((x) => (
-        <group key={x} position={[x, 0, 1.85]}>
-          <mesh position={[0, 0.28, 0]}>
-            <cylinderGeometry args={[0.055, 0.08, 0.56, 8]} />
-            <meshStandardMaterial color="#4d3726" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 0.73, 0]}>
-            <coneGeometry args={[0.36, 0.88, 10]} />
-            <meshStandardMaterial color="#17372f" roughness={0.88} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
-
 function EatonCentre() {
   return (
     <group>
@@ -2095,7 +2045,7 @@ function Landmarks(props: CitySceneProps) {
         <ApartmentTower />
       </InteractiveLandmark>
       <InteractiveLandmark id="education" {...props}>
-        <UofTCampus />
+        <UofTCampusDetailed />
       </InteractiveLandmark>
       <InteractiveLandmark id="experience" {...props}>
         <ShopifyOfficeDetailed reducedMotion={props.reducedMotion} />
