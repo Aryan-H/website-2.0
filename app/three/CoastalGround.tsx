@@ -35,18 +35,24 @@ const SHORE_ANCHORS: Point2[] = [
 ];
 
 export const WATERFRONT_STREET_X = [-34, -27, -19, -11, -3, 6, 15, 24, 32] as const;
+export const CN_ROGERS_DIVIDER_X = -11;
 export const COASTAL_ROAD_SETBACK = 4.35;
 
+// Keeps the z=1 to z=7.5 landmark blocks intact through their eastern edge at x=6.
+const COASTLINE_OUTSET = 3.8;
 const COASTAL_ROAD_OFFSET = -2.62;
 const COASTAL_ROAD_WIDTH = 1.68;
 const JUNCTION_HALF_WIDTH = 0.82;
+const WATERFRONT_JUNCTION_X = WATERFRONT_STREET_X.filter(
+  (x) => x !== CN_ROGERS_DIVIDER_X,
+);
 
 /** Land occupies z < shorelineZAtX(x); water occupies z > shorelineZAtX(x). */
 export function shorelineZAtX(x: number): number {
   const first = SHORE_ANCHORS[0];
   const last = SHORE_ANCHORS[SHORE_ANCHORS.length - 1];
-  if (x <= first[0]) return first[1];
-  if (x >= last[0]) return last[1];
+  if (x <= first[0]) return first[1] + COASTLINE_OUTSET;
+  if (x >= last[0]) return last[1] + COASTLINE_OUTSET;
 
   const rightIndex = SHORE_ANCHORS.findIndex(([anchorX]) => anchorX >= x);
   const leftIndex = Math.max(0, rightIndex - 1);
@@ -61,7 +67,7 @@ export function shorelineZAtX(x: number): number {
   const leftSlope = (rightZ - previous[1]) / (rightX - previous[0]);
   const rightSlope = (next[1] - leftZ) / (next[0] - leftX);
 
-  return (
+  return COASTLINE_OUTSET + (
     (2 * t3 - 3 * t2 + 1) * leftZ +
     (t3 - 2 * t2 + t) * span * leftSlope +
     (-2 * t3 + 3 * t2) * rightZ +
@@ -602,7 +608,7 @@ function RoadDetails({ curve }: { curve: THREE.CatmullRomCurve3 }) {
 function WaterfrontJunctions() {
   const junctions = useMemo(
     () =>
-      WATERFRONT_STREET_X.map((x) => {
+      WATERFRONT_JUNCTION_X.map((x) => {
         const shoreline = shorelineZAtX(x);
         const start = shoreline - COASTAL_ROAD_SETBACK - 0.08;
         const end = shoreline + COASTAL_ROAD_OFFSET + COASTAL_ROAD_WIDTH / 2 + 0.06;
@@ -945,7 +951,7 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
         -3.82,
         0.62,
         144,
-        WATERFRONT_STREET_X,
+        WATERFRONT_JUNCTION_X,
         JUNCTION_HALF_WIDTH,
       ),
     [curve],
@@ -961,7 +967,7 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
         -3.48,
         0.12,
         144,
-        WATERFRONT_STREET_X,
+        WATERFRONT_JUNCTION_X,
         JUNCTION_HALF_WIDTH,
       ),
     [curve],
@@ -1002,11 +1008,11 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
       <PromenadeDetails curve={curve} />
       <CoastalStructures curve={curve} />
 
-      <Boat position={[8.2, 10.1]} rotation={-0.16} scale={0.78} phase={0.4} sail reducedMotion={reducedMotion} />
-      <Boat position={[13.4, 9.4]} rotation={0.12} scale={0.66} phase={1.5} sail={false} reducedMotion={reducedMotion} />
-      <Boat position={[18.1, 12.4]} rotation={-0.24} scale={0.82} phase={2.4} sail reducedMotion={reducedMotion} />
-      <Boat position={[24.8, 9.8]} rotation={0.2} scale={0.7} phase={3.2} sail={false} reducedMotion={reducedMotion} />
-      <Boat position={[28.2, 15.3]} rotation={-0.08} scale={0.88} phase={4.1} sail reducedMotion={reducedMotion} />
+      <Boat position={[8.2, 13.9]} rotation={-0.16} scale={0.78} phase={0.4} sail reducedMotion={reducedMotion} />
+      <Boat position={[13.4, 13.2]} rotation={0.12} scale={0.66} phase={1.5} sail={false} reducedMotion={reducedMotion} />
+      <Boat position={[18.1, 16.2]} rotation={-0.24} scale={0.82} phase={2.4} sail reducedMotion={reducedMotion} />
+      <Boat position={[24.8, 13.6]} rotation={0.2} scale={0.7} phase={3.2} sail={false} reducedMotion={reducedMotion} />
+      <Boat position={[28.2, 19.1]} rotation={-0.08} scale={0.88} phase={4.1} sail reducedMotion={reducedMotion} />
     </group>
   );
 }

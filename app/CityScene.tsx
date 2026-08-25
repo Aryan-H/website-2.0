@@ -13,7 +13,13 @@ import * as THREE from "three";
 import type { DestinationId } from "./portfolio-data";
 import ClimbingGymDetailed from "./three/ClimbingGymDetailed";
 import ClimbingGymSurroundings from "./three/ClimbingGymSurroundings";
+import {
+  CNRogersPlaza,
+  CNTowerDetailed,
+  RogersCentreDetailed,
+} from "./three/CNTowerRogersCentreDetailed";
 import CoastalGround, {
+  CN_ROGERS_DIVIDER_X,
   COASTAL_ROAD_SETBACK,
   WATERFRONT_STREET_X,
   shorelineZAtX,
@@ -29,6 +35,12 @@ type CitySceneProps = {
 };
 
 type Point = readonly [number, number, number];
+
+const ROGERS_CENTRE_POSITION: Point = [-14.7, 0, 4.65];
+const CN_ROGERS_PLAZA_POSITION: Point = [-11, 0, 4.535];
+const CLIMBING_GYM_POSITION: Point = [-15, 0, -8.75];
+const FORMER_CLIMBING_GYM_POSITION: Point = [-15, 0, -15.25];
+const CLIMBING_GYM_BLOCK_DEPTH = 6.5;
 
 type LandmarkDefinition = {
   position: Point;
@@ -68,29 +80,29 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
     landmark: "Eaton Centre",
   },
   projects: {
-    position: [6, 0, 8],
-    labelPosition: [0, 3.65, 0],
+    position: [6, 0, 11.8],
+    labelPosition: [0, 3, 1.7],
     number: "05",
     title: "Selected projects",
     landmark: "Harvourfront",
   },
   hobbies: {
-    position: [-15, 0, -15.25],
+    position: CLIMBING_GYM_POSITION,
     labelPosition: [0, 4.15, 0],
     number: "06",
     title: "Beyond work",
     landmark: "Climbing gym",
   },
   contact: {
-    position: [1.5, 0, -2.25],
+    position: [1.5, 0, 4.25],
     labelPosition: [0, 3.75, 0],
     number: "07",
     title: "Contact",
     landmark: "Union Station",
   },
   overview: {
-    position: [-7, 0, -2.25],
-    labelPosition: [0, 12.8, 0],
+    position: [-7, 0, 4.25],
+    labelPosition: [3.5, 12.8, 0],
     number: "08",
     title: "Quick view",
     landmark: "CN Tower",
@@ -123,10 +135,13 @@ const CAMERA_VIEWS: Record<DestinationId, { position: Point; target: Point }> = 
   education: createCinematicView([-7, 2.1, -15.25], 14.5),
   experience: createCinematicView([-23, 4.9, -2.25], 20),
   market: createCinematicView([10.5, 1.85, -8.75], 14),
-  projects: createCinematicView([6, 1.4, 8], 13),
-  hobbies: createCinematicView([-15, 1.65, -15.25], 11.5),
-  contact: createCinematicView([1.5, 1.7, -2.25], 14),
-  overview: createCinematicView([-7, 5.8, -2.25], 20),
+  projects: createCinematicView([6, 1.4, 11.8], 13),
+  hobbies: createCinematicView(
+    [CLIMBING_GYM_POSITION[0], 1.65, CLIMBING_GYM_POSITION[2]],
+    11.5,
+  ),
+  contact: createCinematicView([1.5, 1.7, 4.25], 14),
+  overview: createCinematicView([-10.25, 6, 4.45], 24),
 };
 
 const BLUE = "#48c6ff";
@@ -262,6 +277,7 @@ const ROAD_X = WATERFRONT_STREET_X;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
+const CN_ROGERS_DIVIDER_END_Z = 1.66;
 
 function inlandRoadEndX(z: number) {
   let end = CITY_MIN_X;
@@ -278,6 +294,7 @@ function horizontalRoadEnd(z: number) {
 }
 
 function verticalRoadEnd(x: number) {
+  if (x === CN_ROGERS_DIVIDER_X) return CN_ROGERS_DIVIDER_END_Z;
   return shorelineZAtX(x) - COASTAL_ROAD_SETBACK;
 }
 
@@ -299,14 +316,30 @@ const PROTECTION: Record<DestinationId, ProtectionProfile> = {
   overview: { disk: 3.2, corridor: 1.3, sightY: 0.45, edgeHeight: 1.7 },
 };
 
-const CLEARINGS = (
-  Object.entries(LANDMARKS) as Array<[DestinationId, LandmarkDefinition]>
-).map(([id, { position }]) => ({
-  id,
-  x: position[0],
-  z: position[2],
-  radius: PROTECTION[id].disk,
-}));
+const CLEARINGS = [
+  ...(
+    Object.entries(LANDMARKS) as Array<[DestinationId, LandmarkDefinition]>
+  ).map(([id, { position }]) => {
+    // Generate the skyline against the former gym clearing, then explicitly
+    // move the one foreground-block building into it below. This preserves
+    // every unrelated procedural building while making the change a true
+    // one-block swap.
+    const clearingPosition =
+      id === "hobbies" ? FORMER_CLIMBING_GYM_POSITION : position;
+    return {
+      id,
+      x: clearingPosition[0],
+      z: clearingPosition[2],
+      radius: PROTECTION[id].disk,
+    };
+  }),
+  {
+    id: "overview" as const,
+    x: ROGERS_CENTRE_POSITION[0],
+    z: ROGERS_CENTRE_POSITION[2],
+    radius: 4.8,
+  },
+];
 
 function districtProfile(x: number, z: number) {
   const shoreDistance = shorelineZAtX(x) - z;
@@ -335,7 +368,10 @@ function sightlineBodyCap(
   rawHeight: number,
   tone: number,
 ) {
-  const landmark = LANDMARKS[id].position;
+  const landmark =
+    id === "hobbies"
+      ? FORMER_CLIMBING_GYM_POSITION
+      : LANDMARKS[id].position;
   const camera = DEFAULT_VIEW.position;
   const viewX = camera[0] - landmark[0];
   const viewZ = camera[2] - landmark[2];
@@ -494,9 +530,11 @@ function createCityData(): CityData {
 
       if (height < 1.12) continue;
 
+      const belongsToNewGymBlock =
+        px > -18.3 && px < -11.7 && pz > -11.3 && pz < -6.2;
       const building: Building = {
         x: px,
-        z: pz,
+        z: belongsToNewGymBlock ? pz - CLIMBING_GYM_BLOCK_DEPTH : pz,
         width,
         depth,
         height,
@@ -948,16 +986,22 @@ function Streets() {
           scale: [road.length, 0.075, 0.08] as Point,
         },
       ]),
-      ...verticalRoads.flatMap((road) => [
-        {
-          position: [road.fixed - 0.66, 0.075, road.center] as Point,
-          scale: [0.08, 0.075, road.length] as Point,
-        },
-        {
-          position: [road.fixed + 0.66, 0.075, road.center] as Point,
-          scale: [0.08, 0.075, road.length] as Point,
-        },
-      ]),
+      ...verticalRoads.flatMap((road) => {
+        const curbEnd =
+          road.fixed === CN_ROGERS_DIVIDER_X ? 0.34 : road.end;
+        const curbLength = curbEnd - road.start;
+        const curbCenter = (road.start + curbEnd) * 0.5;
+        return [
+          {
+            position: [road.fixed - 0.66, 0.075, curbCenter] as Point,
+            scale: [0.08, 0.075, curbLength] as Point,
+          },
+          {
+            position: [road.fixed + 0.66, 0.075, curbCenter] as Point,
+            scale: [0.08, 0.075, curbLength] as Point,
+          },
+        ];
+      }),
     ],
     [horizontalRoads, verticalRoads],
   );
@@ -965,7 +1009,8 @@ function Streets() {
     () =>
       ROAD_X.flatMap((x) =>
         ROAD_Z.flatMap((z) =>
-          z < shorelineZAtX(x) - 4.5
+          z < shorelineZAtX(x) - 4.5 &&
+          !(x === CN_ROGERS_DIVIDER_X && z === 1)
             ? Array.from({ length: 6 }, (_, index) => ({
                 position: [x - 0.47 + index * 0.19, 0.094, z + 0.82] as Point,
                 scale: [0.055, 0.012, 0.24] as Point,
@@ -1192,20 +1237,22 @@ function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
           end: horizontalRoadEnd(road) - 0.55,
         },
       ]),
-      ...ROAD_X.flatMap((road) => [
-        {
-          axis: "z" as const,
-          lane: road - 0.25,
-          start: CITY_MIN_Z + 0.55,
-          end: verticalRoadEnd(road) - 0.55,
-        },
-        {
-          axis: "z" as const,
-          lane: road + 0.25,
-          start: CITY_MIN_Z + 0.55,
-          end: verticalRoadEnd(road) - 0.55,
-        },
-      ]),
+      ...ROAD_X.filter((road) => road !== CN_ROGERS_DIVIDER_X).flatMap(
+        (road) => [
+          {
+            axis: "z" as const,
+            lane: road - 0.25,
+            start: CITY_MIN_Z + 0.55,
+            end: verticalRoadEnd(road) - 0.55,
+          },
+          {
+            axis: "z" as const,
+            lane: road + 0.25,
+            start: CITY_MIN_Z + 0.55,
+            end: verticalRoadEnd(road) - 0.55,
+          },
+        ],
+      ),
     ];
     for (let index = 0; index < 48; index += 1) {
       const road = roadLanes[index % roadLanes.length];
@@ -1266,13 +1313,12 @@ const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   projects: [
     [-3, 0.13, 1],
     [6, 0.13, 1],
-    [6, 0.13, 5.8],
+    [6, 0.13, 9.6],
   ],
   hobbies: [
     [-7, 0.13, -5.5],
     [-11, 0.13, -5.5],
-    [-11, 0.13, -12],
-    [-15, 0.13, -12],
+    [-11, 0.13, CLIMBING_GYM_POSITION[2]],
   ],
   contact: [
     [-3, 0.13, 1],
@@ -1606,97 +1652,6 @@ function InteractiveLandmark({
       <LocationMarker active={active} reducedMotion={reducedMotion} />
       {children}
       <LandmarkLabel active={active} definition={definition} />
-    </group>
-  );
-}
-
-function Beam({
-  start,
-  end,
-  radius,
-  color,
-}: {
-  start: Point;
-  end: Point;
-  radius: number;
-  color: string;
-}) {
-  const transform = useMemo(() => {
-    const startVector = new THREE.Vector3(...start);
-    const endVector = new THREE.Vector3(...end);
-    const direction = endVector.clone().sub(startVector);
-    return {
-      position: startVector.add(endVector).multiplyScalar(0.5),
-      quaternion: new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        direction.clone().normalize(),
-      ),
-      length: direction.length(),
-    };
-  }, [end, start]);
-
-  return (
-    <mesh position={transform.position} quaternion={transform.quaternion} castShadow>
-      <cylinderGeometry args={[radius, radius, transform.length, 10]} />
-      <meshStandardMaterial color={color} metalness={0.25} roughness={0.55} />
-    </mesh>
-  );
-}
-
-function Beacon({ reducedMotion }: { reducedMotion: boolean }) {
-  const material = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame(({ clock }) => {
-    if (!material.current || reducedMotion) return;
-    material.current.opacity =
-      0.55 + Math.max(0, Math.sin(clock.getElapsedTime() * 2.4)) * 0.45;
-  });
-
-  return (
-    <mesh position={[0, 12.52, 0]}>
-      <sphereGeometry args={[0.085, 12, 12]} />
-      <meshBasicMaterial
-        ref={material}
-        color="#ff7669"
-        opacity={0.9}
-        transparent
-        toneMapped={false}
-      />
-    </mesh>
-  );
-}
-
-function CnTower({ reducedMotion }: { reducedMotion: boolean }) {
-  return (
-    <group>
-      <Beam start={[-0.72, 0.05, -0.58]} end={[0, 4.8, 0]} radius={0.19} color="#a7adb2" />
-      <Beam start={[0.72, 0.05, -0.58]} end={[0, 4.8, 0]} radius={0.19} color="#a7adb2" />
-      <Beam start={[0, 0.05, 0.76]} end={[0, 4.8, 0]} radius={0.19} color="#9da5ab" />
-      <mesh position={[0, 5.55, 0]} castShadow>
-        <cylinderGeometry args={[0.21, 0.43, 5.7, 18]} />
-        <meshStandardMaterial color="#b7bdc1" metalness={0.15} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 7.88, 0]} castShadow>
-        <cylinderGeometry args={[1.08, 0.78, 0.58, 28]} />
-        <meshStandardMaterial color="#b8bdc2" metalness={0.26} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 7.85, 0]}>
-        <cylinderGeometry args={[0.88, 0.9, 0.2, 28]} />
-        <meshBasicMaterial color="#62c8f6" toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 8.26, 0]}>
-        <cylinderGeometry args={[0.58, 0.72, 0.32, 24]} />
-        <meshStandardMaterial color="#9ea6ad" metalness={0.24} roughness={0.45} />
-      </mesh>
-      <mesh position={[0, 8.48, 0]}>
-        <cylinderGeometry args={[0.35, 0.5, 0.2, 24]} />
-        <meshBasicMaterial color="#ffc16c" opacity={0.9} transparent toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 10.39, 0]}>
-        <cylinderGeometry args={[0.028, 0.13, 4.06, 12]} />
-        <meshStandardMaterial color="#c8cdd0" metalness={0.35} roughness={0.4} />
-      </mesh>
-      <Beacon reducedMotion={reducedMotion} />
     </group>
   );
 }
@@ -2059,6 +2014,12 @@ function UnionStation() {
 function Landmarks(props: CitySceneProps) {
   return (
     <group>
+      <group position={CN_ROGERS_PLAZA_POSITION}>
+        <CNRogersPlaza />
+      </group>
+      <group position={ROGERS_CENTRE_POSITION}>
+        <RogersCentreDetailed reducedMotion={props.reducedMotion} />
+      </group>
       <InteractiveLandmark id="about" {...props}>
         <ApartmentTower />
       </InteractiveLandmark>
@@ -2081,7 +2042,7 @@ function Landmarks(props: CitySceneProps) {
         <UnionStation />
       </InteractiveLandmark>
       <InteractiveLandmark id="overview" {...props}>
-        <CnTower reducedMotion={props.reducedMotion} />
+        <CNTowerDetailed reducedMotion={props.reducedMotion} />
       </InteractiveLandmark>
     </group>
   );
@@ -2110,11 +2071,11 @@ function CityWorld(props: CitySceneProps) {
         shadow-mapSize-width={2048}
         shadow-normalBias={0.035}
       />
-      <pointLight color="#247fc7" distance={25} intensity={38} position={[-1, 5, 1]} />
+      <pointLight color="#247fc7" distance={25} intensity={38} position={[-1, 5, 4.25]} />
       <pointLight color="#e7a45b" distance={13} intensity={22} position={[-7, 4.5, -15.25]} />
       <pointLight color="#48c6ff" distance={14} intensity={21} position={[-23, 5.8, -2.25]} />
       <pointLight color="#e2a45c" distance={12} intensity={18} position={[19, 5.6, -15.25]} />
-      <pointLight color="#378fbc" distance={16} intensity={20} position={[6, 2.2, 8]} />
+      <pointLight color="#378fbc" distance={16} intensity={20} position={[6, 2.2, 11.8]} />
       <pointLight color="#f0b66f" decay={2} distance={10} intensity={13} position={[-15, 3.2, -14.1]} />
 
       <CoastalGround reducedMotion={props.reducedMotion} />
