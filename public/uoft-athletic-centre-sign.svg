@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250">
+  <rect width="1000" height="250" rx="20" fill="#0b3d74"/>
+  <rect x="18" y="18" width="964" height="214" rx="12" fill="none" stroke="#7da6c8" stroke-width="7"/>
+  <text x="500" y="102" fill="#dce9f3" font-family="Arial, Helvetica, sans-serif" font-size="55" font-weight="700" letter-spacing="6" text-anchor="middle">UNIVERSITY OF TORONTO</text>
+  <text x="500" y="185" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800" letter-spacing="8" text-anchor="middle">ATHLETIC CENTRE</text>
+</svg>

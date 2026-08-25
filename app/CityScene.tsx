@@ -14,6 +14,7 @@ import type { DestinationId } from "./portfolio-data";
 import ClimbingGymDetailed from "./three/ClimbingGymDetailed";
 import ClimbingGymSurroundings from "./three/ClimbingGymSurroundings";
 import BrickHouseStreet from "./three/BrickHouseStreet";
+import ChinatownEastGreyBuildings from "./three/ChinatownEastGreyBuildings";
 import ChinatownBuilding from "./three/ChinatownBuilding";
 import {
   CNRogersPlaza,
@@ -32,7 +33,9 @@ import McDonaldsDetailed from "./three/McDonaldsDetailed";
 import NeighbourApartmentTTC from "./three/NeighbourApartmentTTC";
 import ShopifyFrontPark from "./three/ShopifyFrontPark";
 import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
+import UofTAthleticCentre from "./three/UofTAthleticCentre";
 import UofTCampusDetailed from "./three/UofTCampusDetailed";
+import UofTGreyBuildings from "./three/UofTGreyBuildings";
 import UnionRailCorridor from "./three/UnionRailCorridor";
 import UnionStationDetailed from "./three/UnionStationDetailed";
 import YongeDundasCineplex from "./three/YongeDundasCineplex";
@@ -74,8 +77,11 @@ const BRICK_HOUSE_STREET_POSITION: Point = [-30.5, 0, -5.5];
 const CINEPLEX_POSITION: Point = [1.5, 0, -2.25];
 const MCDONALDS_POSITION: Point = [-23, 0, -8.75];
 const CHINATOWN_BUILDING_POSITION: Point = [-15, 0, -2.25];
+const CHINATOWN_EAST_GREY_BUILDINGS_POSITION: Point = [-6.4, 0, -2.25];
 const CLIMBING_GYM_POSITION: Point = [-15, 0, -8.75];
 const FORMER_CLIMBING_GYM_POSITION: Point = [-15, 0, -15.25];
+const ATHLETIC_CENTRE_POSITION: Point = FORMER_CLIMBING_GYM_POSITION;
+const UOFT_GREY_BUILDINGS_POSITION: Point = [-13.5, 0, -21.77];
 const CLIMBING_GYM_BLOCK_DEPTH = 6.5;
 const UNION_STATION_POSITION: Point = [1.5, 0, 4.9];
 const FORMER_UNION_STATION_POSITION: Point = [1.5, 0, 4.25];
@@ -366,6 +372,18 @@ const CHINATOWN_BUILDING_MIN_X = -18.35;
 const CHINATOWN_BUILDING_MAX_X = -11.65;
 const CHINATOWN_BUILDING_MIN_Z = -4.85;
 const CHINATOWN_BUILDING_MAX_Z = 0.35;
+const CHINATOWN_EAST_GREY_BUILDINGS_MIN_X = -9.35;
+const CHINATOWN_EAST_GREY_BUILDINGS_MAX_X = -3.45;
+const CHINATOWN_EAST_GREY_BUILDINGS_MIN_Z = -4.8;
+const CHINATOWN_EAST_GREY_BUILDINGS_MAX_Z = 0.2;
+const ATHLETIC_CENTRE_MIN_X = -18.35;
+const ATHLETIC_CENTRE_MAX_X = -11.65;
+const ATHLETIC_CENTRE_MIN_Z = -17.85;
+const ATHLETIC_CENTRE_MAX_Z = -12.65;
+const UOFT_GREY_BUILDINGS_MIN_X = -15.2;
+const UOFT_GREY_BUILDINGS_MAX_X = -11.85;
+const UOFT_GREY_BUILDINGS_MIN_Z = -22.75;
+const UOFT_GREY_BUILDINGS_MAX_Z = -20.75;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
@@ -709,6 +727,39 @@ function blocksChinatownBuildingBlock(building: Building) {
   );
 }
 
+function blocksChinatownEastGreyBuildingsParcel(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > CHINATOWN_EAST_GREY_BUILDINGS_MIN_X &&
+    building.x - halfWidth < CHINATOWN_EAST_GREY_BUILDINGS_MAX_X &&
+    building.z + halfDepth > CHINATOWN_EAST_GREY_BUILDINGS_MIN_Z &&
+    building.z - halfDepth < CHINATOWN_EAST_GREY_BUILDINGS_MAX_Z
+  );
+}
+
+function blocksAthleticCentreBlock(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > ATHLETIC_CENTRE_MIN_X &&
+    building.x - halfWidth < ATHLETIC_CENTRE_MAX_X &&
+    building.z + halfDepth > ATHLETIC_CENTRE_MIN_Z &&
+    building.z - halfDepth < ATHLETIC_CENTRE_MAX_Z
+  );
+}
+
+function blocksUofTGreyBuildingsParcel(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > UOFT_GREY_BUILDINGS_MIN_X &&
+    building.x - halfWidth < UOFT_GREY_BUILDINGS_MAX_X &&
+    building.z + halfDepth > UOFT_GREY_BUILDINGS_MIN_Z &&
+    building.z - halfDepth < UOFT_GREY_BUILDINGS_MAX_Z
+  );
+}
+
 function blocksEatonCentreExpansion(building: Building) {
   const halfWidth = building.width * 0.5;
   const halfDepth = building.depth * 0.5;
@@ -826,6 +877,9 @@ function createCityData(): CityData {
         blocksCineplexBlock(building) ||
         blocksMcDonaldsBlock(building) ||
         blocksChinatownBuildingBlock(building) ||
+        blocksChinatownEastGreyBuildingsParcel(building) ||
+        blocksAthleticCentreBlock(building) ||
+        blocksUofTGreyBuildingsParcel(building) ||
         blocksEatonCentreExpansion(building)
       ) {
         // Consume the same deterministic window RNG as before so removing the
@@ -1959,6 +2013,15 @@ function Landmarks(props: CitySceneProps) {
       </group>
       <group position={CHINATOWN_BUILDING_POSITION}>
         <ChinatownBuilding />
+      </group>
+      <group position={CHINATOWN_EAST_GREY_BUILDINGS_POSITION}>
+        <ChinatownEastGreyBuildings />
+      </group>
+      <group position={ATHLETIC_CENTRE_POSITION}>
+        <UofTAthleticCentre />
+      </group>
+      <group position={UOFT_GREY_BUILDINGS_POSITION}>
+        <UofTGreyBuildings />
       </group>
       <group position={NEIGHBOUR_APARTMENT_TTC_POSITION}>
         <NeighbourApartmentTTC />
