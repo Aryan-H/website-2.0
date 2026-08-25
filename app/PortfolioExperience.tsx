@@ -501,7 +501,7 @@ function QuickView({
             ))}
           </div>
           <button className="section-explore" onClick={() => onExplore("projects")}>
-            Visit Harvourfront <ArrowUpRight size={15} />
+            Visit Harbourfront <ArrowUpRight size={15} />
           </button>
         </section>
 
@@ -661,7 +661,7 @@ function MobilePortfolio() {
         </section>
 
         <section className="mobile-section" id="mobile-projects">
-          <p className="section-label">03 / Selected projects</p>
+          <p className="section-label">03 / Projects</p>
           <h2>Technical ideas made tangible.</h2>
           <div className="mobile-projects">
             {projects.map((project) => (

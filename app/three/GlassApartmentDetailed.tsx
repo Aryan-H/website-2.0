@@ -295,9 +295,103 @@ function Rooftop() {
   );
 }
 
+function ApartmentTennisCourt() {
+  const courtZ = 6.5;
+  const markings = useMemo<BoxItem[]>(
+    () => [
+      { position: [0, 0.151, courtZ - 1.5], scale: [6, 0.018, 0.045] },
+      { position: [0, 0.151, courtZ + 1.5], scale: [6, 0.018, 0.045] },
+      { position: [-3, 0.151, courtZ], scale: [0.045, 0.018, 3.04] },
+      { position: [3, 0.151, courtZ], scale: [0.045, 0.018, 3.04] },
+      { position: [0, 0.152, courtZ - 1.15], scale: [6, 0.018, 0.035] },
+      { position: [0, 0.152, courtZ + 1.15], scale: [6, 0.018, 0.035] },
+      { position: [-1.48, 0.152, courtZ], scale: [0.04, 0.018, 2.32] },
+      { position: [1.48, 0.152, courtZ], scale: [0.04, 0.018, 2.32] },
+      { position: [0, 0.153, courtZ], scale: [2.96, 0.018, 0.035] },
+    ],
+    [],
+  );
+  const fencePosts = useMemo<BoxItem[]>(() => {
+    const items: BoxItem[] = [];
+    [-3.28, 3.28].forEach((x) => {
+      [-1.92, -0.96, 0, 0.96, 1.92].forEach((z) => {
+        items.push({ position: [x, 0.65, courtZ + z], scale: [0.055, 1.18, 0.055] });
+      });
+    });
+    [-3.28, -2.18, -1.09, 0, 1.09, 2.18, 3.28].forEach((x) => {
+      [-1.92, 1.92].forEach((z) => {
+        items.push({ position: [x, 0.65, courtZ + z], scale: [0.055, 1.18, 0.055] });
+      });
+    });
+    return items;
+  }, []);
+  const fenceRails = useMemo<BoxItem[]>(
+    () => [
+      ...[-3.28, 3.28].flatMap((x) =>
+        [0.3, 0.78, 1.23].map((y) => ({
+          position: [x, y, courtZ] as Vec3,
+          scale: [0.035, 0.035, 3.88] as Vec3,
+        })),
+      ),
+      ...[-1.92, 1.92].flatMap((z) =>
+        [0.3, 0.78, 1.23].map((y) => ({
+          position: [0, y, courtZ + z] as Vec3,
+          scale: [6.6, 0.035, 0.035] as Vec3,
+        })),
+      ),
+    ],
+    [],
+  );
+  const netPosts = useMemo<BoxItem[]>(
+    () =>
+      [-1.63, 1.63].map((z) => ({
+        position: [0, 0.48, courtZ + z],
+        scale: [0.055, 0.68, 0.055],
+      })),
+    [],
+  );
+  const benches = useMemo<BoxItem[]>(
+    () =>
+      [-1.45, 1.45].flatMap((x) => [
+        { position: [x, 0.28, courtZ + 2.12] as Vec3, scale: [1.05, 0.12, 0.28] as Vec3 },
+        { position: [x, 0.47, courtZ + 2.24] as Vec3, scale: [1.05, 0.38, 0.1] as Vec3 },
+      ]),
+    [],
+  );
+
+  return (
+    <group>
+      <mesh position={[0, 0.055, courtZ]} receiveShadow raycast={() => undefined}>
+        <boxGeometry args={[6.85, 0.11, 4.72]} />
+        <meshStandardMaterial color="#5b686d" metalness={0.12} roughness={0.82} />
+      </mesh>
+      <mesh position={[0, 0.125, courtZ]} receiveShadow raycast={() => undefined}>
+        <boxGeometry args={[6.3, 0.08, 3.62]} />
+        <meshPhysicalMaterial clearcoat={0.36} color="#10517a" metalness={0.08} roughness={0.56} />
+      </mesh>
+      <Boxes
+        items={markings}
+        color="#edfaff"
+        emissive="#9de6ff"
+        emissiveIntensity={0.35}
+        roughness={0.4}
+      />
+      <Boxes items={fencePosts} color="#7894a2" metalness={0.78} roughness={0.32} />
+      <Boxes items={fenceRails} color="#5d7b8a" metalness={0.76} roughness={0.34} />
+      <Boxes items={netPosts} color="#4c6673" metalness={0.52} roughness={0.46} />
+      <mesh position={[0, 0.49, courtZ]} rotation-y={Math.PI / 2} raycast={() => undefined}>
+        <planeGeometry args={[3.2, 0.5, 4, 1]} />
+        <meshBasicMaterial color="#344d59" opacity={0.3} transparent wireframe />
+      </mesh>
+      <Boxes items={benches} color="#b7cbd3" metalness={0.5} roughness={0.44} />
+    </group>
+  );
+}
+
 export default function GlassApartmentDetailed() {
   return (
     <group>
+      <ApartmentTennisCourt />
       <PodiumAndEntrance />
       <mesh position={[0, 3.92, 0]} castShadow receiveShadow>
         <boxGeometry args={[3.68, 5.62, 2.92]} />

@@ -26,6 +26,7 @@ import CoastalGround, {
 } from "./three/CoastalGround";
 import EatonCentreDetailed from "./three/EatonCentreDetailed";
 import GlassApartmentDetailed from "./three/GlassApartmentDetailed";
+import NeighbourApartmentTTC from "./three/NeighbourApartmentTTC";
 import ShopifyFrontPark from "./three/ShopifyFrontPark";
 import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
 import UofTCampusDetailed from "./three/UofTCampusDetailed";
@@ -64,6 +65,7 @@ const ROGERS_CENTRE_POSITION: Point = [-14.7, 0, 4.65];
 const CN_ROGERS_PLAZA_POSITION: Point = [-11, 0, 4.535];
 const APARTMENT_POSITION: Point = [1.5, 0, -15.25];
 const FORMER_APARTMENT_POSITION: Point = [19, 0, -15.25];
+const NEIGHBOUR_APARTMENT_TTC_POSITION: Point = [10.5, 0, -15.25];
 const CLIMBING_GYM_POSITION: Point = [-15, 0, -8.75];
 const FORMER_CLIMBING_GYM_POSITION: Point = [-15, 0, -15.25];
 const CLIMBING_GYM_BLOCK_DEPTH = 6.5;
@@ -121,8 +123,8 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
     position: [6, 0, 11.8],
     labelPosition: [0, 3, 1.7],
     number: "05",
-    title: "Selected projects",
-    landmark: "Harvourfront",
+    title: "Projects",
+    landmark: "Harbourfront",
   },
   hobbies: {
     position: CLIMBING_GYM_POSITION,
@@ -189,7 +191,6 @@ const CAMERA_VIEWS: Record<DestinationId, { position: Point; target: Point }> = 
 };
 
 const BLUE = "#48c6ff";
-const BLUE_GLOW = "#1677ff";
 const MIDNIGHT = "#020711";
 
 function CameraRig({
@@ -337,7 +338,11 @@ const EATON_DIVIDER_ROAD_END_Z = -4.84;
 const APARTMENT_BLOCK_MIN_X = -2.55;
 const APARTMENT_BLOCK_MAX_X = 5.55;
 const APARTMENT_BLOCK_MIN_Z = -18.05;
-const APARTMENT_BLOCK_MAX_Z = -12.45;
+const APARTMENT_BLOCK_MAX_Z = -5.95;
+const NEIGHBOUR_BLOCK_MIN_X = 6.45;
+const NEIGHBOUR_BLOCK_MAX_X = 14.55;
+const NEIGHBOUR_BLOCK_MIN_Z = -18.05;
+const NEIGHBOUR_BLOCK_MAX_Z = -12.45;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
@@ -612,6 +617,17 @@ function blocksApartmentBlock(building: Building) {
   );
 }
 
+function blocksNeighbourApartmentTTC(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > NEIGHBOUR_BLOCK_MIN_X &&
+    building.x - halfWidth < NEIGHBOUR_BLOCK_MAX_X &&
+    building.z + halfDepth > NEIGHBOUR_BLOCK_MIN_Z &&
+    building.z - halfDepth < NEIGHBOUR_BLOCK_MAX_Z
+  );
+}
+
 function blocksShopifyFrontPark(building: Building) {
   const halfWidth = building.width * 0.5;
   const halfDepth = building.depth * 0.5;
@@ -734,6 +750,7 @@ function createCityData(): CityData {
         blocksUnionRailCorridor(building) ||
         blocksUofTFrontField(building) ||
         blocksApartmentBlock(building) ||
+        blocksNeighbourApartmentTTC(building) ||
         blocksShopifyFrontPark(building) ||
         blocksEatonCentreExpansion(building)
       ) {
@@ -1305,11 +1322,13 @@ function MarinaBoat({
   rotation = 0,
   scale = 1,
   sail = false,
+  passengers = false,
 }: {
   position: Point;
   rotation?: number;
   scale?: number;
   sail?: boolean;
+  passengers?: boolean;
 }) {
   return (
     <group position={position} rotation-y={rotation} scale={scale}>
@@ -1355,6 +1374,25 @@ function MarinaBoat({
             />
           </mesh>
         </>
+      )}
+      {passengers && (
+        <group>
+          {[
+            { x: -0.11, z: -0.12, shirt: "#4ca6d2" },
+            { x: 0.12, z: 0.03, shirt: "#dbe9ee" },
+          ].map((person) => (
+            <group key={person.x} position={[person.x, 0, person.z]}>
+              <mesh position={[0, 0.46, 0]} raycast={() => undefined}>
+                <cylinderGeometry args={[0.045, 0.055, 0.18, 8]} />
+                <meshStandardMaterial color={person.shirt} roughness={0.72} />
+              </mesh>
+              <mesh position={[0, 0.59, 0]} raycast={() => undefined}>
+                <sphereGeometry args={[0.048, 8, 8]} />
+                <meshStandardMaterial color="#b98365" roughness={0.84} />
+              </mesh>
+            </group>
+          ))}
+        </group>
       )}
       <mesh position={[-0.18, 0.025, 0.9]} rotation-x={-Math.PI / 2}>
         <planeGeometry args={[0.015, 1.15]} />
@@ -1495,191 +1533,6 @@ function Traffic({ reducedMotion }: { reducedMotion: boolean }) {
         lights={lights.filter((light) => light.red)}
         reducedMotion={reducedMotion}
         color="#ff705f"
-      />
-    </group>
-  );
-}
-
-type RouteAsset = {
-  id: DestinationId;
-  curve: THREE.CatmullRomCurve3;
-  core: THREE.TubeGeometry;
-  glow: THREE.TubeGeometry;
-};
-
-const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
-  about: [
-    [-3, 0.13, -5.5],
-    [-3, 0.13, -12],
-    [APARTMENT_POSITION[0], 0.13, -12],
-  ],
-  education: [
-    [-7, 0.13, -5.5],
-    [-7, 0.13, -12],
-  ],
-  experience: [
-    [-7, 0.13, 1],
-    [-19, 0.13, 1],
-  ],
-  market: [
-    [-3, 0.13, -5.5],
-    [6, 0.13, -5.5],
-    [6, 0.13, -2.25],
-  ],
-  projects: [
-    [-3, 0.13, 1],
-    [6, 0.13, 1],
-    [6, 0.13, 9.6],
-  ],
-  hobbies: [
-    [-7, 0.13, -5.5],
-    [-11, 0.13, -5.5],
-    [-11, 0.13, CLIMBING_GYM_POSITION[2]],
-  ],
-  contact: [
-    [-3, 0.13, 1],
-    [-3, 0.13, 7.15],
-  ],
-};
-
-const ROUTE_ENDPOINTS: Partial<
-  Record<Exclude<DestinationId, "overview">, Point>
-> = {
-  about: [APARTMENT_POSITION[0], 0.13, -12.78],
-  experience: [-20.85, 0.13, -0.35],
-  contact: [UNION_STATION_POSITION[0], 0.13, 7.15],
-};
-
-function createRoutes(): RouteAsset[] {
-  const origin = new THREE.Vector3(
-    LANDMARKS.overview.position[0],
-    0.13,
-    LANDMARKS.overview.position[2],
-  );
-  return (Object.keys(ROUTE_WAYPOINTS) as Array<Exclude<DestinationId, "overview">>).map(
-    (id) => {
-      const destination = ROUTE_ENDPOINTS[id] ?? LANDMARKS[id].position;
-      const curve = new THREE.CatmullRomCurve3(
-        [
-          origin.clone(),
-          ...ROUTE_WAYPOINTS[id].map((point) => new THREE.Vector3(...point)),
-          new THREE.Vector3(destination[0], 0.13, destination[2]),
-        ],
-        false,
-        "centripetal",
-      );
-      return {
-        id,
-        curve,
-        core: new THREE.TubeGeometry(curve, 72, 0.026, 6, false),
-        glow: new THREE.TubeGeometry(curve, 72, 0.085, 6, false),
-      };
-    },
-  );
-}
-
-function RouteSignals({
-  routes,
-  selected,
-  hovered,
-  reducedMotion,
-}: {
-  routes: RouteAsset[];
-  selected: DestinationId | null;
-  hovered: DestinationId | null;
-  reducedMotion: boolean;
-}) {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  const helper = useMemo(() => new THREE.Object3D(), []);
-  const point = useMemo(() => new THREE.Vector3(), []);
-  const signals = useMemo(
-    () =>
-      routes.flatMap((route, routeIndex) => [
-        { route, routeIndex, phase: (routeIndex * 0.137) % 1, speed: 0.055 },
-        { route, routeIndex, phase: (0.47 + routeIndex * 0.091) % 1, speed: 0.038 },
-      ]),
-    [routes],
-  );
-
-  useFrame(({ clock }) => {
-    if (!mesh.current) return;
-    const elapsed = reducedMotion ? 0 : clock.getElapsedTime();
-    signals.forEach((signal, index) => {
-      const cycle = (signal.phase * 2 + elapsed * signal.speed * 2) % 2;
-      const progress = cycle <= 1 ? cycle : 2 - cycle;
-      signal.route.curve.getPointAt(progress, point);
-      const active = selected === signal.route.id || hovered === signal.route.id;
-      helper.position.copy(point);
-      helper.position.y += 0.025;
-      helper.rotation.set(0, 0, 0);
-      helper.scale.setScalar(active ? 0.105 : 0.075);
-      helper.updateMatrix();
-      mesh.current?.setMatrixAt(index, helper.matrix);
-    });
-    mesh.current.instanceMatrix.needsUpdate = true;
-  });
-
-  return (
-    <instancedMesh
-      ref={mesh}
-      args={[undefined, undefined, signals.length]}
-      frustumCulled={false}
-    >
-      <sphereGeometry args={[1, 10, 10]} />
-      <meshBasicMaterial color="#b6efff" toneMapped={false} />
-    </instancedMesh>
-  );
-}
-
-function RouteNetwork({
-  selected,
-  hovered,
-  reducedMotion,
-}: Pick<CitySceneProps, "selected" | "hovered" | "reducedMotion">) {
-  const routes = useMemo(() => createRoutes(), []);
-
-  useEffect(
-    () => () => {
-      routes.forEach((route) => {
-        route.core.dispose();
-        route.glow.dispose();
-      });
-    },
-    [routes],
-  );
-
-  return (
-    <group>
-      {routes.map((route) => {
-        const active = selected === route.id || hovered === route.id;
-        return (
-          <group key={route.id}>
-            <mesh geometry={route.glow} renderOrder={2}>
-              <meshBasicMaterial
-                blending={THREE.AdditiveBlending}
-                color={active ? "#43cfff" : "#0d5fa4"}
-                depthWrite={false}
-                opacity={active ? 0.34 : 0.16}
-                transparent
-                toneMapped={false}
-              />
-            </mesh>
-            <mesh geometry={route.core} renderOrder={3}>
-              <meshBasicMaterial
-                color={active ? "#9ceaff" : BLUE_GLOW}
-                opacity={active ? 1 : 0.68}
-                transparent
-                toneMapped={false}
-              />
-            </mesh>
-          </group>
-        );
-      })}
-      <RouteSignals
-        routes={routes}
-        selected={selected}
-        hovered={hovered}
-        reducedMotion={reducedMotion}
       />
     </group>
   );
@@ -1874,8 +1727,52 @@ function InteractiveLandmark({
   );
 }
 
-function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
+function Harbourfront({ reducedMotion }: { reducedMotion: boolean }) {
   const boats = useRef<THREE.Group>(null);
+  const dockPlankSeams = useMemo<InstanceTransform[]>(
+    () => [
+      ...Array.from({ length: 14 }, (_, index) => ({
+        position: [-2.65 + index * 0.41, 0.307, -1.8] as Point,
+        scale: [0.018, 0.014, 1.02] as Point,
+      })),
+      ...[-1.7, 0, 1.7].flatMap((x) =>
+        Array.from({ length: 10 }, (_, index) => ({
+          position: [x, 0.187, -1.08 + index * 0.34] as Point,
+          scale: [0.29, 0.014, 0.018] as Point,
+        })),
+      ),
+    ],
+    [],
+  );
+  const dockEdgeTrim = useMemo<InstanceTransform[]>(
+    () => [
+      { position: [0, 0.22, -2.34], scale: [5.82, 0.12, 0.06] },
+      { position: [0, 0.22, -1.26], scale: [5.82, 0.12, 0.06] },
+      ...[-1.7, 0, 1.7].flatMap((x) => [
+        { position: [x - 0.16, 0.115, 0.4] as Point, scale: [0.045, 0.13, 3.35] as Point },
+        { position: [x + 0.16, 0.115, 0.4] as Point, scale: [0.045, 0.13, 3.35] as Point },
+      ]),
+    ],
+    [],
+  );
+  const canopyPosts = useMemo<InstanceTransform[]>(
+    () =>
+      [-1.18, 1.18].flatMap((x) =>
+        [-2.05, -1.52].map((z) => ({
+          position: [x, 0.61, z] as Point,
+          scale: [0.055, 0.61, 0.055] as Point,
+        })),
+      ),
+    [],
+  );
+  const mooringCleats = useMemo<InstanceTransform[]>(
+    () =>
+      [-1.7, 0, 1.7].flatMap((x) => [
+        { position: [x - 0.11, 0.27, 1.9] as Point, scale: [0.12, 0.08, 0.05] as Point },
+        { position: [x + 0.11, 0.27, 1.9] as Point, scale: [0.12, 0.08, 0.05] as Point },
+      ]),
+    [],
+  );
 
   useFrame(({ clock }) => {
     if (!boats.current) return;
@@ -1888,7 +1785,7 @@ function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
     <group>
       <mesh position={[0, 0.15, -1.8]} castShadow>
         <boxGeometry args={[5.8, 0.3, 1.1]} />
-        <meshStandardMaterial color="#343c40" metalness={0.34} roughness={0.58} />
+        <meshStandardMaterial color="#5a5147" metalness={0.16} roughness={0.76} />
       </mesh>
       <mesh position={[0, 0.58, -1.78]} castShadow>
         <boxGeometry args={[2.7, 0.58, 0.72]} />
@@ -1905,12 +1802,20 @@ function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
         <boxGeometry args={[3.05, 0.08, 0.94]} />
         <meshStandardMaterial color="#cad1d2" metalness={0.25} roughness={0.48} />
       </mesh>
+      <mesh position={[0, 0.865, -1.78]} raycast={() => undefined}>
+        <boxGeometry args={[2.42, 0.035, 0.08]} />
+        <meshBasicMaterial color="#8bdfff" opacity={0.72} transparent toneMapped={false} />
+      </mesh>
+      <DetailInstances items={canopyPosts} color="#77909b" opacity={0.94} />
       {[-1.7, 0, 1.7].map((x) => (
         <mesh key={x} position={[x, 0.09, 0.4]} castShadow>
-          <boxGeometry args={[0.22, 0.18, 3.35]} />
-          <meshStandardMaterial color="#6c5945" metalness={0.12} roughness={0.8} />
+          <boxGeometry args={[0.3, 0.18, 3.35]} />
+          <meshStandardMaterial color="#665548" metalness={0.1} roughness={0.84} />
         </mesh>
       ))}
+      <DetailInstances items={dockPlankSeams} color="#2d3132" opacity={0.56} />
+      <DetailInstances items={dockEdgeTrim} color="#182830" opacity={0.94} />
+      <DetailInstances items={mooringCleats} color="#91a5ad" opacity={0.94} />
       {[-2.55, -1.7, 0, 1.7, 2.55].map((x) => (
         <group key={x} position={[x, 0, -1.28]}>
           <mesh position={[0, 0.42, 0]}>
@@ -1924,11 +1829,11 @@ function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
         </group>
       ))}
       <group ref={boats}>
-        <MarinaBoat position={[-2.25, 0.03, 0.15]} rotation={0.08} scale={0.72} sail />
-        <MarinaBoat position={[-1.08, 0.03, 1.22]} rotation={-0.06} scale={0.58} />
-        <MarinaBoat position={[0.62, 0.03, 0.35]} rotation={0.12} scale={0.76} sail />
-        <MarinaBoat position={[1.16, 0.03, 1.55]} rotation={-0.09} scale={0.6} />
-        <MarinaBoat position={[2.35, 0.03, 0.25]} rotation={0.05} scale={0.66} sail />
+        <MarinaBoat position={[-2.3, 0.03, 0.18]} rotation={0.08} scale={0.72} sail />
+        <MarinaBoat position={[-1.1, 0.03, 1.3]} rotation={-0.06} scale={0.58} />
+        <MarinaBoat position={[0.58, 0.03, 0.42]} rotation={0.12} scale={0.76} sail passengers />
+        <MarinaBoat position={[1.2, 0.03, 1.48]} rotation={-0.09} scale={0.6} />
+        <MarinaBoat position={[2.35, 0.03, 0.22]} rotation={0.05} scale={0.66} sail />
       </group>
       <mesh position={[2.72, 0.19, 2.1]}>
         <sphereGeometry args={[0.09, 10, 10]} />
@@ -1969,6 +1874,9 @@ function UnionStationDistrict({
 function Landmarks(props: CitySceneProps) {
   return (
     <group>
+      <group position={NEIGHBOUR_APARTMENT_TTC_POSITION}>
+        <NeighbourApartmentTTC />
+      </group>
       <group position={CN_ROGERS_PLAZA_POSITION}>
         <CNRogersPlaza />
       </group>
@@ -1992,7 +1900,7 @@ function Landmarks(props: CitySceneProps) {
         <EatonCentreDetailed />
       </InteractiveLandmark>
       <InteractiveLandmark id="projects" {...props}>
-        <Harvourfront reducedMotion={props.reducedMotion} />
+        <Harbourfront reducedMotion={props.reducedMotion} />
       </InteractiveLandmark>
       <InteractiveLandmark id="hobbies" {...props}>
         <ClimbingGymDistrict />
@@ -2052,11 +1960,6 @@ function CityWorld(props: CitySceneProps) {
       <CoastalGround reducedMotion={props.reducedMotion} />
       <Streets />
       <ProceduralSkyline reducedMotion={props.reducedMotion} />
-      <RouteNetwork
-        hovered={props.hovered}
-        reducedMotion={props.reducedMotion}
-        selected={props.selected}
-      />
       <Traffic reducedMotion={props.reducedMotion} />
       <Landmarks {...props} />
       <FogBanks reducedMotion={props.reducedMotion} />

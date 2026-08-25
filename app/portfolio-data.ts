@@ -77,8 +77,8 @@ export const destinations: Destination[] = [
   {
     id: "projects",
     number: "05",
-    name: "Selected projects",
-    landmark: "Harvourfront",
+    name: "Projects",
+    landmark: "Harbourfront",
     eyebrow: "Experiments with consequence",
     intro:
       "Applied AI, pathfinding, audio intelligence, and the systems decisions that make them work.",

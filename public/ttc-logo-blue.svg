@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="300" viewBox="0 0 768 300">
+  <rect x="6" y="6" width="756" height="288" rx="18" fill="#071c2c" stroke="#35bff3" stroke-width="12"/>
+  <path d="M228 42h312l-34 70h70l126 78-48 58H488c-27 27-63 40-104 40s-77-13-104-40H114l-48-58 126-78h70z" fill="none" stroke="#43c9ff" stroke-width="18" stroke-linejoin="miter"/>
+  <path d="M260 54h248l-44 91c-7 15-11 30-11 47v9c0 46-31 69-69 69s-69-23-69-69v-9c0-17-4-32-11-47z" fill="#0a3550" stroke="#43c9ff" stroke-width="12"/>
+  <text x="384" y="208" fill="#f4fbff" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="800" letter-spacing="-8" text-anchor="middle">TTC</text>
+</svg>
