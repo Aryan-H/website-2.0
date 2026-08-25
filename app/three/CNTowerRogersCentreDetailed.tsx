@@ -13,6 +13,12 @@ type BoxInstance = {
   color?: string;
 };
 
+type BeamInstance = {
+  start: Vec3;
+  end: Vec3;
+  radius: number;
+};
+
 const COLORS = {
   concrete: "#a8adb0",
   concreteDark: "#5b6266",
@@ -51,6 +57,8 @@ function StaticBoxes({
   interactive = true,
   metalness = 0.1,
   roughness = 0.7,
+  castShadow = false,
+  receiveShadow = false,
   vertexColors = false,
 }: {
   items: BoxInstance[];
@@ -60,6 +68,8 @@ function StaticBoxes({
   interactive?: boolean;
   metalness?: number;
   roughness?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
   vertexColors?: boolean;
 }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
@@ -85,9 +95,9 @@ function StaticBoxes({
     <instancedMesh
       ref={mesh}
       args={[undefined, undefined, items.length]}
-      castShadow
+      castShadow={castShadow}
       raycast={interactive ? undefined : () => undefined}
-      receiveShadow
+      receiveShadow={receiveShadow}
     >
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial
@@ -108,12 +118,14 @@ function StructuralBeam({
   radius,
   color = COLORS.concrete,
   interactive = true,
+  shadows = false,
 }: {
   start: Vec3;
   end: Vec3;
   radius: number;
   color?: string;
   interactive?: boolean;
+  shadows?: boolean;
 }) {
   const transform = useMemo(() => {
     const startPoint = new THREE.Vector3(...start);
@@ -131,15 +143,59 @@ function StructuralBeam({
 
   return (
     <mesh
-      castShadow
+      castShadow={shadows}
       position={transform.midpoint}
       quaternion={transform.quaternion}
       raycast={interactive ? undefined : () => undefined}
-      receiveShadow
+      receiveShadow={shadows}
     >
-      <cylinderGeometry args={[radius, radius, transform.length, 12]} />
+      <cylinderGeometry args={[radius, radius, transform.length, 8]} />
       <meshStandardMaterial color={color} metalness={0.18} roughness={0.55} />
     </mesh>
+  );
+}
+
+/** Repeated support beams share one geometry/material and one shadow-free draw call. */
+function StaticBeams({
+  items,
+  color,
+}: {
+  items: BeamInstance[];
+  color: string;
+}) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    if (!mesh.current) return;
+    const helper = new THREE.Object3D();
+    const up = new THREE.Vector3(0, 1, 0);
+    const start = new THREE.Vector3();
+    const end = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+
+    items.forEach((item, index) => {
+      start.set(...item.start);
+      end.set(...item.end);
+      direction.copy(end).sub(start);
+      helper.position.copy(start).add(end).multiplyScalar(0.5);
+      helper.quaternion.setFromUnitVectors(up, direction.clone().normalize());
+      helper.scale.set(item.radius, direction.length(), item.radius);
+      helper.updateMatrix();
+      mesh.current?.setMatrixAt(index, helper.matrix);
+    });
+    mesh.current.instanceMatrix.needsUpdate = true;
+    mesh.current.computeBoundingSphere();
+  }, [items]);
+
+  return (
+    <instancedMesh
+      ref={mesh}
+      args={[undefined, undefined, items.length]}
+      raycast={() => undefined}
+    >
+      <cylinderGeometry args={[1, 1, 1, 6]} />
+      <meshStandardMaterial color={color} metalness={0.18} roughness={0.55} />
+    </instancedMesh>
   );
 }
 
@@ -166,11 +222,11 @@ function GlowBeam({ start, end, radius, color = COLORS.blue }: {
   return (
     <group position={transform.midpoint} quaternion={transform.quaternion}>
       <mesh raycast={() => undefined}>
-        <cylinderGeometry args={[radius, radius, transform.length, 10]} />
+        <cylinderGeometry args={[radius, radius, transform.length, 6]} />
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
       <mesh raycast={() => undefined}>
-        <cylinderGeometry args={[radius * 2.8, radius * 2.8, transform.length, 12]} />
+        <cylinderGeometry args={[radius * 2.8, radius * 2.8, transform.length, 8]} />
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
           color={color}
@@ -190,9 +246,11 @@ function StaticCylinders({
   emissive,
   emissiveIntensity = 0,
   metalness = 0.2,
-  radialSegments = 10,
+  radialSegments = 8,
   roughness = 0.58,
   topRadius = 1,
+  castShadow = false,
+  receiveShadow = false,
 }: {
   items: BoxInstance[];
   color: string;
@@ -202,6 +260,8 @@ function StaticCylinders({
   radialSegments?: number;
   roughness?: number;
   topRadius?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
 }) {
   const mesh = useRef<THREE.InstancedMesh>(null);
 
@@ -223,9 +283,9 @@ function StaticCylinders({
     <instancedMesh
       ref={mesh}
       args={[undefined, undefined, items.length]}
-      castShadow
+      castShadow={castShadow}
       raycast={() => undefined}
-      receiveShadow
+      receiveShadow={receiveShadow}
     >
       <cylinderGeometry args={[topRadius, 1, 1, radialSegments]} />
       <meshStandardMaterial
@@ -262,9 +322,7 @@ function StaticFoliage({ items, color }: { items: BoxInstance[]; color: string }
     <instancedMesh
       ref={mesh}
       args={[undefined, undefined, items.length]}
-      castShadow
       raycast={() => undefined}
-      receiveShadow
     >
       <icosahedronGeometry args={[1, 1]} />
       <meshStandardMaterial color={color} roughness={0.88} vertexColors />
@@ -434,8 +492,6 @@ function PlazaLamps() {
         metalness={0.05}
         roughness={0.2}
       />
-      <pointLight color="#ffd49a" decay={2} distance={4.3} intensity={1.9} position={[1.85, 1.3, -2.45]} />
-      <pointLight color="#ffe3b3" decay={2} distance={4} intensity={1.6} position={[1.45, 1.3, 3.15]} />
     </group>
   );
 }
@@ -614,7 +670,7 @@ function PlazaKiosksAndStreetFurniture() {
   return (
     <group>
       <group position={[0.57, 0, 1.12]}>
-        <mesh castShadow position={[0, 0.49, 0]} raycast={() => undefined} receiveShadow>
+        <mesh position={[0, 0.49, 0]} raycast={() => undefined}>
           <boxGeometry args={[0.42, 0.94, 0.32]} />
           <meshStandardMaterial color="#354852" metalness={0.52} roughness={0.38} />
         </mesh>
@@ -626,13 +682,13 @@ function PlazaKiosksAndStreetFurniture() {
           <planeGeometry args={[0.2, 0.045]} />
           <meshBasicMaterial color="#ffd181" toneMapped={false} />
         </mesh>
-        <mesh castShadow position={[0, 0.99, 0]} raycast={() => undefined}>
+        <mesh position={[0, 0.99, 0]} raycast={() => undefined}>
           <boxGeometry args={[0.52, 0.08, 0.4]} />
           <meshStandardMaterial color="#718087" metalness={0.6} roughness={0.3} />
         </mesh>
       </group>
       <group position={[0.95, 0, -1.56]}>
-        <mesh castShadow position={[0, 0.66, 0]} raycast={() => undefined} receiveShadow>
+        <mesh position={[0, 0.66, 0]} raycast={() => undefined}>
           <boxGeometry args={[0.18, 1.22, 0.2]} />
           <meshStandardMaterial color="#384d58" metalness={0.5} roughness={0.38} />
         </mesh>
@@ -666,7 +722,7 @@ function PlazaKiosksAndStreetFurniture() {
           raycast={() => undefined}
           rotation-y={Math.PI / 2}
         >
-          <torusGeometry args={[0.22, 0.022, 8, 24]} />
+          <torusGeometry args={[0.22, 0.022, 6, 14]} />
           <meshStandardMaterial color="#71818a" metalness={0.78} roughness={0.28} />
         </mesh>
       ))}
@@ -828,11 +884,18 @@ export function CNRogersPlaza() {
   );
 }
 
-function TowerBeacon({ reducedMotion }: { reducedMotion: boolean }) {
+function TowerBeacon({
+  active,
+  reducedMotion,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+}) {
   const beacon = useRef<THREE.MeshBasicMaterial>(null);
   const halo = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
+    if (!active) return;
     const pulse = reducedMotion
       ? 0.88
       : 0.5 + Math.max(0, Math.sin(clock.elapsedTime * 2.7)) * 0.5;
@@ -843,7 +906,7 @@ function TowerBeacon({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <group position={[0, 12.68, 0]}>
       <mesh>
-        <sphereGeometry args={[0.075, 12, 12]} />
+        <sphereGeometry args={[0.075, 8, 8]} />
         <meshBasicMaterial
           ref={beacon}
           color={COLORS.beacon}
@@ -853,7 +916,7 @@ function TowerBeacon({ reducedMotion }: { reducedMotion: boolean }) {
         />
       </mesh>
       <mesh raycast={() => undefined}>
-        <sphereGeometry args={[0.19, 14, 10]} />
+        <sphereGeometry args={[0.19, 10, 8]} />
         <meshBasicMaterial
           ref={halo}
           blending={THREE.AdditiveBlending}
@@ -864,7 +927,6 @@ function TowerBeacon({ reducedMotion }: { reducedMotion: boolean }) {
           toneMapped={false}
         />
       </mesh>
-      <pointLight color={COLORS.beacon} decay={2} distance={2.8} intensity={2.4} />
     </group>
   );
 }
@@ -901,16 +963,16 @@ function ObservationDeck() {
 
   return (
     <group>
-      <mesh castShadow position={[0, 7.73, 0]} receiveShadow>
-        <cylinderGeometry args={[0.76, 0.42, 0.34, 36]} />
+      <mesh position={[0, 7.73, 0]}>
+        <cylinderGeometry args={[0.76, 0.42, 0.34, 24]} />
         <meshStandardMaterial color="#989fa4" metalness={0.34} roughness={0.42} />
       </mesh>
       <mesh castShadow position={[0, 7.91, 0]} receiveShadow>
-        <cylinderGeometry args={[1.14, 0.75, 0.25, 40]} />
+        <cylinderGeometry args={[1.14, 0.75, 0.25, 28]} />
         <meshStandardMaterial color={COLORS.concrete} metalness={0.25} roughness={0.45} />
       </mesh>
       <mesh position={[0, 8.08, 0]}>
-        <cylinderGeometry args={[0.98, 1.02, 0.28, 40]} />
+        <cylinderGeometry args={[0.98, 1.02, 0.28, 28]} />
         <meshPhysicalMaterial
           clearcoat={0.92}
           clearcoatRoughness={0.09}
@@ -934,7 +996,7 @@ function ObservationDeck() {
       />
       {[7.96, 8.2, 8.31].map((y, index) => (
         <mesh key={y} position={[0, y, 0]} rotation-x={Math.PI / 2}>
-          <torusGeometry args={[index === 2 ? 0.82 : 1.02, index === 2 ? 0.035 : 0.045, 8, 48]} />
+          <torusGeometry args={[index === 2 ? 0.82 : 1.02, index === 2 ? 0.035 : 0.045, 6, 32]} />
           <meshStandardMaterial
             color={index === 1 ? "#cbd1d3" : "#7d8990"}
             metalness={0.72}
@@ -942,8 +1004,8 @@ function ObservationDeck() {
           />
         </mesh>
       ))}
-      <mesh castShadow position={[0, 8.41, 0]} receiveShadow>
-        <cylinderGeometry args={[0.79, 0.85, 0.3, 36]} />
+      <mesh position={[0, 8.41, 0]}>
+        <cylinderGeometry args={[0.79, 0.85, 0.3, 24]} />
         <meshPhysicalMaterial
           clearcoat={0.82}
           color="#22495c"
@@ -962,16 +1024,16 @@ function ObservationDeck() {
         roughness={0.24}
         vertexColors
       />
-      <mesh castShadow position={[0, 8.61, 0]} receiveShadow>
-        <cylinderGeometry args={[0.53, 0.75, 0.18, 32]} />
+      <mesh position={[0, 8.61, 0]}>
+        <cylinderGeometry args={[0.53, 0.75, 0.18, 24]} />
         <meshStandardMaterial color="#aab1b5" metalness={0.36} roughness={0.38} />
       </mesh>
       <mesh position={[0, 8.21, 0]} rotation-x={Math.PI / 2} raycast={() => undefined}>
-        <torusGeometry args={[1.055, 0.035, 7, 48]} />
+        <torusGeometry args={[1.055, 0.035, 6, 32]} />
         <meshBasicMaterial color={COLORS.blue} toneMapped={false} />
       </mesh>
       <mesh position={[0, 8.21, 0]} rotation-x={Math.PI / 2} raycast={() => undefined}>
-        <torusGeometry args={[1.065, 0.085, 8, 48]} />
+        <torusGeometry args={[1.065, 0.085, 6, 32]} />
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
           color={COLORS.blue}
@@ -990,17 +1052,19 @@ function ObservationDeck() {
  * Detailed CN Tower, centred on its local origin. The visible footprint is
  * approximately 5.25 x 5.25 units and its aircraft beacon reaches y=12.68.
  */
-export function CNTowerDetailed({ reducedMotion = false }: { reducedMotion?: boolean }) {
+export function CNTowerDetailed({
+  active = true,
+  reducedMotion = false,
+}: {
+  active?: boolean;
+  reducedMotion?: boolean;
+}) {
   const legAngles = useMemo(() => [Math.PI / 2, Math.PI / 2 + (Math.PI * 2) / 3, Math.PI / 2 + (Math.PI * 4) / 3], []);
-  const antennaBands = useMemo(
+  const redAntennaBands = useMemo<BoxInstance[]>(
     () => [
-      { y: 9.65, height: 1.78, top: 0.055, bottom: 0.15, color: "#c4c9cb" },
-      { y: 10.67, height: 0.26, top: 0.062, bottom: 0.07, color: "#e85d57" },
-      { y: 11.1, height: 0.6, top: 0.042, bottom: 0.064, color: "#d7dadb" },
-      { y: 11.48, height: 0.16, top: 0.043, bottom: 0.046, color: "#e85d57" },
-      { y: 11.88, height: 0.64, top: 0.025, bottom: 0.043, color: "#d8dcdd" },
-      { y: 12.28, height: 0.16, top: 0.026, bottom: 0.028, color: "#e85d57" },
-      { y: 12.48, height: 0.28, top: 0.014, bottom: 0.026, color: "#d8dcdd" },
+      { position: [0, 10.67, 0], scale: [0.07, 0.26, 0.07] },
+      { position: [0, 11.48, 0], scale: [0.046, 0.16, 0.046] },
+      { position: [0, 12.28, 0], scale: [0.028, 0.16, 0.028] },
     ],
     [],
   );
@@ -1029,16 +1093,10 @@ export function CNTowerDetailed({ reducedMotion = false }: { reducedMotion?: boo
               color={index === 1 ? "#999fa2" : COLORS.concrete}
               end={[0, 4.88, 0]}
               radius={0.2}
+              shadows
               start={foot}
             />
             <GlowBeam end={glowEnd} radius={0.024} start={glowStart} />
-            <pointLight
-              color={COLORS.blue}
-              decay={2}
-              distance={4.4}
-              intensity={2.1}
-              position={[foot[0] * 1.28, 0.48, foot[2] * 1.28]}
-            />
             <mesh position={[Math.cos(angle) * 1.84, 0.18, Math.sin(angle) * 1.84]} rotation-y={Math.PI / 2 - angle}>
               <boxGeometry args={[0.74, 0.24, 0.48]} />
               <meshStandardMaterial color="#39454b" metalness={0.28} roughness={0.65} />
@@ -1047,13 +1105,13 @@ export function CNTowerDetailed({ reducedMotion = false }: { reducedMotion?: boo
         );
       })}
       <mesh castShadow position={[0, 4.11, 0]} receiveShadow>
-        <cylinderGeometry args={[0.235, 0.54, 7.34, 24]} />
+        <cylinderGeometry args={[0.235, 0.54, 7.34, 18]} />
         <meshStandardMaterial color="#b3b8bb" metalness={0.18} roughness={0.5} />
       </mesh>
       {[2.15, 3.65, 5.2, 6.55].map((y, index) => (
         <group key={y} position={[0, y, 0]} rotation-x={Math.PI / 2}>
           <mesh>
-            <torusGeometry args={[0.52 - index * 0.08, 0.025, 7, 28]} />
+            <torusGeometry args={[0.52 - index * 0.08, 0.025, 6, 20]} />
             <meshStandardMaterial
               color="#71818a"
               emissive={COLORS.blueDark}
@@ -1063,7 +1121,7 @@ export function CNTowerDetailed({ reducedMotion = false }: { reducedMotion?: boo
             />
           </mesh>
           <mesh raycast={() => undefined}>
-            <torusGeometry args={[0.535 - index * 0.08, 0.01, 6, 28]} />
+            <torusGeometry args={[0.535 - index * 0.08, 0.01, 5, 20]} />
             <meshBasicMaterial
               blending={THREE.AdditiveBlending}
               color={COLORS.blue}
@@ -1076,23 +1134,29 @@ export function CNTowerDetailed({ reducedMotion = false }: { reducedMotion?: boo
         </group>
       ))}
       <ObservationDeck />
-      <mesh castShadow position={[0, 8.84, 0]} receiveShadow>
-        <cylinderGeometry args={[0.15, 0.3, 0.46, 24]} />
+      <mesh position={[0, 8.84, 0]}>
+        <cylinderGeometry args={[0.15, 0.3, 0.46, 16]} />
         <meshStandardMaterial color="#9fa7ab" metalness={0.38} roughness={0.4} />
       </mesh>
-      {antennaBands.map((segment) => (
-        <mesh key={segment.y} castShadow position={[0, segment.y, 0]}>
-          <cylinderGeometry args={[segment.top, segment.bottom, segment.height, 12]} />
-          <meshStandardMaterial color={segment.color} metalness={0.48} roughness={0.38} />
-        </mesh>
-      ))}
+      <mesh position={[0, 10.69, 0]}>
+        <cylinderGeometry args={[0.014, 0.15, 3.86, 8]} />
+        <meshStandardMaterial color="#d3d7d8" metalness={0.48} roughness={0.38} />
+      </mesh>
+      <StaticCylinders
+        color="#e85d57"
+        items={redAntennaBands}
+        metalness={0.42}
+        radialSegments={8}
+        roughness={0.4}
+        topRadius={0.86}
+      />
       {[10.55, 11.4, 12.2].map((y) => (
         <mesh key={y} position={[0, y, 0]} rotation-x={Math.PI / 2} raycast={() => undefined}>
-          <torusGeometry args={[0.095, 0.012, 6, 18]} />
+          <torusGeometry args={[0.095, 0.012, 5, 12]} />
           <meshBasicMaterial color={COLORS.beacon} toneMapped={false} />
         </mesh>
       ))}
-      <TowerBeacon reducedMotion={reducedMotion} />
+      <TowerBeacon active={active} reducedMotion={reducedMotion} />
     </group>
   );
 }
@@ -1123,7 +1187,7 @@ function EllipseRing({
       rotation-x={-Math.PI / 2}
       scale={[width, depth, 1]}
     >
-      <torusGeometry args={[radius, tube, 7, 72]} />
+      <torusGeometry args={[radius, tube, 6, 40]} />
       <meshStandardMaterial
         color={color}
         emissive={emissive}
@@ -1159,11 +1223,18 @@ function BaseballField() {
     ],
     [],
   );
+  const foulLines = useMemo<BeamInstance[]>(
+    () => [
+      { start: [0, 0.545, 0.82], end: [0.78, 0.545, 0.01], radius: 0.012 },
+      { start: [0, 0.545, 0.82], end: [-0.78, 0.545, 0.01], radius: 0.012 },
+    ],
+    [],
+  );
 
   return (
     <group>
       <mesh position={[0, 0.47, -0.04]} raycast={() => undefined} rotation-x={-Math.PI / 2} scale={[1.72, 1.15, 1]}>
-        <circleGeometry args={[1, 64]} />
+        <circleGeometry args={[1, 40]} />
         <meshStandardMaterial color={COLORS.field} roughness={0.94} />
       </mesh>
       <StaticBoxes items={grassStripes} color={COLORS.field} interactive={false} roughness={0.96} vertexColors />
@@ -1172,11 +1243,10 @@ function BaseballField() {
         <meshStandardMaterial color={COLORS.dirt} roughness={0.97} />
       </mesh>
       <mesh position={[0, 0.525, 0.12]} raycast={() => undefined} rotation-x={-Math.PI / 2}>
-        <circleGeometry args={[0.15, 24]} />
+        <circleGeometry args={[0.15, 16]} />
         <meshStandardMaterial color="#b7794f" roughness={0.98} />
       </mesh>
-      <StructuralBeam color="#f5ead0" end={[0.78, 0.545, 0.01]} interactive={false} radius={0.012} start={[0, 0.545, 0.82]} />
-      <StructuralBeam color="#f5ead0" end={[-0.78, 0.545, 0.01]} interactive={false} radius={0.012} start={[0, 0.545, 0.82]} />
+      <StaticBeams color="#f5ead0" items={foulLines} />
       <StaticBoxes items={bases} color="#f7f1df" interactive={false} metalness={0.02} roughness={0.8} />
       <mesh position={[0, 0.55, 0.83]} raycast={() => undefined} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[0.095, 5]} />
@@ -1224,6 +1294,18 @@ function StadiumSeating() {
     });
     return result;
   }, []);
+  const supports = useMemo<BeamInstance[]>(
+    () =>
+      Array.from({ length: 12 }, (_, index) => {
+        const angle = (index / 12) * Math.PI * 2;
+        return {
+          start: [Math.cos(angle) * 1.36, 0.65, Math.sin(angle) * 0.95],
+          end: [Math.cos(angle) * 2.58, 1.3, Math.sin(angle) * 1.92],
+          radius: 0.018,
+        };
+      }),
+    [],
+  );
 
   return (
     <group>
@@ -1235,24 +1317,12 @@ function StadiumSeating() {
           rotation-x={-Math.PI / 2}
           scale={[2.84, 2.12, 1]}
         >
-          <ringGeometry args={[tier.inner, tier.outer, 72, 1]} />
+          <ringGeometry args={[tier.inner, tier.outer, 44, 1]} />
           <meshStandardMaterial color={tier.color} metalness={0.08} roughness={0.86} side={THREE.DoubleSide} />
         </mesh>
       ))}
       <StaticBoxes items={seats} color={COLORS.seatBlue} interactive={false} roughness={0.78} vertexColors />
-      {Array.from({ length: 12 }, (_, index) => {
-        const angle = (index / 12) * Math.PI * 2;
-        return (
-          <StructuralBeam
-            key={angle}
-            color="#9ca6a9"
-            end={[Math.cos(angle) * 2.58, 1.3, Math.sin(angle) * 1.92]}
-            interactive={false}
-            radius={0.018}
-            start={[Math.cos(angle) * 1.36, 0.65, Math.sin(angle) * 0.95]}
-          />
-        );
-      })}
+      <StaticBeams color="#9ca6a9" items={supports} />
     </group>
   );
 }
@@ -1266,19 +1336,31 @@ function RetractableRoof() {
     { start: 4.34, length: 0.45, y: 1.96, color: "#c9ccca" },
     { start: 5.18, length: 0.48, y: 1.98, color: "#d7d8d4" },
   ];
+  const supports = useMemo<BeamInstance[]>(
+    () =>
+      Array.from({ length: 16 }, (_, index) => {
+        const angle = (index / 16) * Math.PI * 2;
+        if (angle > 2.9 && angle < 4.25) return null;
+        return {
+          start: [Math.cos(angle) * 2.13, 1.92, Math.sin(angle) * 1.58],
+          end: [Math.cos(angle) * 3.22, 2.02, Math.sin(angle) * 2.45],
+          radius: 0.024,
+        } satisfies BeamInstance;
+      }).filter((beam): beam is BeamInstance => beam !== null),
+    [],
+  );
 
   return (
     <group>
       {panels.map((panel) => (
         <mesh
           key={panel.start}
-          castShadow
           position={[0, panel.y, 0]}
           raycast={() => undefined}
           rotation-x={-Math.PI / 2}
           scale={[3.31, 2.52, 1]}
         >
-          <ringGeometry args={[0.64, 1, 52, 3, panel.start, panel.length]} />
+          <ringGeometry args={[0.64, 1, 34, 2, panel.start, panel.length]} />
           <meshStandardMaterial
             color={panel.color}
             metalness={0.42}
@@ -1289,28 +1371,22 @@ function RetractableRoof() {
       ))}
       <EllipseRing color="#edf0ef" depth={2.51} tube={0.026} width={3.32} y={2.01} />
       <EllipseRing color="#78858a" depth={1.6} tube={0.022} width={2.16} y={1.92} />
-      {Array.from({ length: 16 }, (_, index) => {
-        const angle = (index / 16) * Math.PI * 2;
-        if (angle > 2.9 && angle < 4.25) return null;
-        return (
-          <StructuralBeam
-            key={angle}
-            color="#90999b"
-            end={[Math.cos(angle) * 3.22, 2.02, Math.sin(angle) * 2.45]}
-            interactive={false}
-            radius={0.024}
-            start={[Math.cos(angle) * 2.13, 1.92, Math.sin(angle) * 1.58]}
-          />
-        );
-      })}
+      <StaticBeams color="#90999b" items={supports} />
     </group>
   );
 }
 
-function StadiumScoreboard({ reducedMotion }: { reducedMotion: boolean }) {
+function StadiumScoreboard({
+  active,
+  reducedMotion,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+}) {
   const screen = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
+    if (!active) return;
     if (!screen.current) return;
     screen.current.opacity = reducedMotion
       ? 0.86
@@ -1385,8 +1461,8 @@ function BlueJaysTributeBanner() {
 
   return (
     <group position={[2.82, 1.17, 1.69]} rotation-y={0.76}>
-      <mesh castShadow raycast={() => undefined} receiveShadow>
-        <shapeGeometry args={[cloth, 8]} />
+      <mesh raycast={() => undefined}>
+        <shapeGeometry args={[cloth, 4]} />
         <meshStandardMaterial
           color="#123d72"
           emissive="#081f3e"
@@ -1397,7 +1473,7 @@ function BlueJaysTributeBanner() {
         />
       </mesh>
       <mesh position={[0, 0.235, -0.005]} raycast={() => undefined} rotation-z={Math.PI / 2}>
-        <cylinderGeometry args={[0.014, 0.014, 1.39, 12]} />
+        <cylinderGeometry args={[0.014, 0.014, 1.39, 8]} />
         <meshStandardMaterial color="#9ba9af" metalness={0.72} roughness={0.3} />
       </mesh>
       {[-0.48, -0.24, 0, 0.24, 0.48].map((x, index) => (
@@ -1413,11 +1489,11 @@ function BlueJaysTributeBanner() {
       ))}
       <group position={[-0.36, 0.005, 0.022]}>
         <mesh raycast={() => undefined}>
-          <circleGeometry args={[0.165, 36]} />
+          <circleGeometry args={[0.165, 24]} />
           <meshBasicMaterial color="#f4f7fa" toneMapped={false} />
         </mesh>
         <mesh position={[0, 0, 0.002]} raycast={() => undefined}>
-          <ringGeometry args={[0.126, 0.16, 36]} />
+          <ringGeometry args={[0.126, 0.16, 24]} />
           <meshBasicMaterial color="#1d2d5c" toneMapped={false} />
         </mesh>
         <mesh position={[0.025, -0.025, 0.004]} raycast={() => undefined}>
@@ -1425,15 +1501,15 @@ function BlueJaysTributeBanner() {
           <meshBasicMaterial color="#e8291c" toneMapped={false} />
         </mesh>
         <mesh position={[-0.018, 0.012, 0.007]} raycast={() => undefined}>
-          <shapeGeometry args={[jayHead, 5]} />
+          <shapeGeometry args={[jayHead, 3]} />
           <meshBasicMaterial color="#134a8e" toneMapped={false} />
         </mesh>
         <mesh position={[-0.047, 0.058, 0.009]} raycast={() => undefined}>
-          <circleGeometry args={[0.012, 16]} />
+          <circleGeometry args={[0.012, 10]} />
           <meshBasicMaterial color="#f7fbff" toneMapped={false} />
         </mesh>
         <mesh position={[-0.047, 0.058, 0.011]} raycast={() => undefined}>
-          <circleGeometry args={[0.005, 12]} />
+          <circleGeometry args={[0.005, 8]} />
           <meshBasicMaterial color="#07111f" toneMapped={false} />
         </mesh>
       </group>
@@ -1450,7 +1526,7 @@ function BlueJaysTributeBanner() {
       ))}
       {[-0.61, 0.61].map((x) => (
         <mesh key={x} position={[x, 0.205, 0.022]} raycast={() => undefined}>
-          <circleGeometry args={[0.018, 16]} />
+          <circleGeometry args={[0.018, 10]} />
           <meshStandardMaterial color="#c9d2d5" metalness={0.72} roughness={0.28} />
         </mesh>
       ))}
@@ -1463,7 +1539,13 @@ function BlueJaysTributeBanner() {
  * spans roughly 7.1 x 5.4 units, and intentionally disables raycasting so the
  * neighbouring CN Tower remains the only interactive destination.
  */
-export function RogersCentreDetailed({ reducedMotion = false }: { reducedMotion?: boolean }) {
+export function RogersCentreDetailed({
+  active = true,
+  reducedMotion = false,
+}: {
+  active?: boolean;
+  reducedMotion?: boolean;
+}) {
   const facadeFins = useMemo<BoxInstance[]>(() => {
     const result: BoxInstance[] = [];
     for (let index = 0; index < 48; index += 1) {
@@ -1508,18 +1590,45 @@ export function RogersCentreDetailed({ reducedMotion = false }: { reducedMotion?
   }, []);
 
   const entrances = useMemo(
-    () => [0.08, 0.34, 0.6, 0.86, 1.12, 1.38].map((angle) => ({ angle })),
+    () => [0.08, 0.34, 0.6, 0.86, 1.12, 1.38],
     [],
+  );
+  const entranceGlass = useMemo<BoxInstance[]>(
+    () =>
+      entrances.map((angle) => ({
+        position: [Math.cos(angle) * 3.4, 0.43, Math.sin(angle) * 2.6],
+        rotation: [0, Math.PI / 2 - angle, 0],
+        scale: [0.48, 0.68, 0.06],
+      })),
+    [entrances],
+  );
+  const entranceCanopies = useMemo<BoxInstance[]>(
+    () =>
+      entrances.map((angle) => ({
+        position: [Math.cos(angle) * 3.6, 0.8, Math.sin(angle) * 2.8],
+        rotation: [0, Math.PI / 2 - angle, 0],
+        scale: [0.65, 0.055, 0.48],
+      })),
+    [entrances],
+  );
+  const entranceLights = useMemo<BoxInstance[]>(
+    () =>
+      entrances.map((angle) => ({
+        position: [Math.cos(angle) * 3.625, 0.82, Math.sin(angle) * 2.825],
+        rotation: [0, Math.PI / 2 - angle, 0],
+        scale: [0.5, 0.018, 0.38],
+      })),
+    [entrances],
   );
 
   return (
     <group>
       <mesh position={[0, 0.045, 0]} raycast={() => undefined} receiveShadow scale={[3.5, 1, 2.68]}>
-        <cylinderGeometry args={[1, 1, 0.09, 64]} />
+        <cylinderGeometry args={[1, 1, 0.09, 44]} />
         <meshStandardMaterial color="#596367" metalness={0.12} roughness={0.82} />
       </mesh>
       <mesh castShadow position={[0, 0.89, 0]} raycast={() => undefined} receiveShadow scale={[3.3, 1, 2.5]}>
-        <cylinderGeometry args={[1, 1, 1.68, 64, 1, true]} />
+        <cylinderGeometry args={[1, 1, 1.68, 44, 1, true]} />
         <meshStandardMaterial color={COLORS.stadiumShadow} metalness={0.38} roughness={0.52} side={THREE.DoubleSide} />
       </mesh>
       <StaticBoxes
@@ -1562,44 +1671,40 @@ export function RogersCentreDetailed({ reducedMotion = false }: { reducedMotion?
           y={y}
         />
       ))}
-      {entrances.map(({ angle }) => {
-        const x = Math.cos(angle) * 3.4;
-        const z = Math.sin(angle) * 2.6;
-        return (
-          <group key={angle} position={[x, 0, z]} rotation-y={Math.PI / 2 - angle}>
-            <mesh position={[0, 0.43, 0]} raycast={() => undefined}>
-              <boxGeometry args={[0.48, 0.68, 0.06]} />
-              <meshPhysicalMaterial
-                clearcoat={0.78}
-                color="#164b69"
-                emissive="#0b3c58"
-                emissiveIntensity={0.36}
-                metalness={0.3}
-                roughness={0.22}
-              />
-            </mesh>
-            <mesh position={[0, 0.8, 0.2]} raycast={() => undefined}>
-              <boxGeometry args={[0.65, 0.055, 0.48]} />
-              <meshStandardMaterial color="#aeb5b5" metalness={0.58} roughness={0.38} />
-            </mesh>
-            <mesh position={[0, 0.82, 0.225]} raycast={() => undefined}>
-              <boxGeometry args={[0.5, 0.018, 0.38]} />
-              <meshBasicMaterial color={COLORS.blue} opacity={0.52} transparent toneMapped={false} />
-            </mesh>
-          </group>
-        );
-      })}
+      <StaticBoxes
+        color="#164b69"
+        emissive="#0b3c58"
+        emissiveIntensity={0.36}
+        interactive={false}
+        items={entranceGlass}
+        metalness={0.3}
+        roughness={0.22}
+      />
+      <StaticBoxes
+        color="#aeb5b5"
+        interactive={false}
+        items={entranceCanopies}
+        metalness={0.58}
+        roughness={0.38}
+      />
+      <StaticBoxes
+        color={COLORS.blue}
+        emissive={COLORS.blue}
+        emissiveIntensity={1.25}
+        interactive={false}
+        items={entranceLights}
+        metalness={0.08}
+        roughness={0.24}
+      />
       <BaseballField />
       <StadiumSeating />
-      <StadiumScoreboard reducedMotion={reducedMotion} />
+      <StadiumScoreboard active={active} reducedMotion={reducedMotion} />
       <RetractableRoof />
       <BlueJaysTributeBanner />
       <mesh position={[3.05, 0.16, 1.78]} raycast={() => undefined} rotation-y={0.76}>
         <boxGeometry args={[1.16, 0.18, 0.72]} />
         <meshStandardMaterial color="#737d7e" metalness={0.16} roughness={0.77} />
       </mesh>
-      <pointLight color={COLORS.blue} decay={2} distance={6.8} intensity={3.8} position={[1.45, 1.7, 1.35]} />
-      <pointLight color={COLORS.warm} decay={2} distance={5.2} intensity={2.6} position={[-1.2, 1.25, -0.8]} />
     </group>
   );
 }

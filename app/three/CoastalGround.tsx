@@ -43,8 +43,11 @@ const COASTLINE_OUTSET = 3.8;
 const COASTAL_ROAD_OFFSET = -2.62;
 const COASTAL_ROAD_WIDTH = 1.68;
 const JUNCTION_HALF_WIDTH = 0.82;
+const RAIL_DISTRICT_MIN_X = 5;
+const RAIL_DISTRICT_MAX_X = 36;
+const RAIL_DISTRICT_INLAND_Z = 1.68;
 const WATERFRONT_JUNCTION_X = WATERFRONT_STREET_X.filter(
-  (x) => x !== CN_ROGERS_DIVIDER_X,
+  (x) => x !== CN_ROGERS_DIVIDER_X && x < RAIL_DISTRICT_MIN_X,
 );
 
 /** Land occupies z < shorelineZAtX(x); water occupies z > shorelineZAtX(x). */
@@ -97,6 +100,11 @@ const materials = {
     color: "#5d6568",
     metalness: 0.09,
     roughness: 0.83,
+  }),
+  railParcel: new THREE.MeshStandardMaterial({
+    color: "#41494d",
+    metalness: 0.05,
+    roughness: 0.9,
   }),
   promenade: new THREE.MeshStandardMaterial({
     color: "#706e67",
@@ -944,6 +952,22 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
     () => createRibbonGeometry(curve, COASTAL_ROAD_OFFSET, COASTAL_ROAD_WIDTH),
     [curve],
   );
+  const railParcel = useMemo(
+    () =>
+      createPolygonGeometry([
+        [RAIL_DISTRICT_MIN_X, RAIL_DISTRICT_INLAND_Z],
+        [RAIL_DISTRICT_MAX_X, RAIL_DISTRICT_INLAND_Z],
+        ...Array.from({ length: 32 }, (_, index) => {
+          const x = RAIL_DISTRICT_MAX_X - index;
+          const coastalRoadInlandEdge =
+            shorelineZAtX(x) +
+            COASTAL_ROAD_OFFSET -
+            COASTAL_ROAD_WIDTH / 2;
+          return [x, coastalRoadInlandEdge] as Point2;
+        }),
+      ]),
+    [],
+  );
   const inlandSidewalk = useMemo(
     () =>
       createRibbonGeometry(
@@ -984,6 +1008,12 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
       <AnimatedWater reducedMotion={reducedMotion} />
 
       <mesh geometry={land} material={materials.land} position={[0, 0, 0]} receiveShadow />
+      <mesh
+        geometry={railParcel}
+        material={materials.railParcel}
+        position={[0, 0.018, 0]}
+        receiveShadow
+      />
       <mesh geometry={road} material={materials.road} position={[0, 0.045, 0]} receiveShadow />
       <mesh
         geometry={inlandSidewalk}
