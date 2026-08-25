@@ -15,12 +15,12 @@ type BoxInstance = {
 const TRACK_Z = [-0.58, 0.58] as const;
 const CENTERLINE_CONTROLS: Vec3[] = [
   [3.55, 0, 0],
-  [4.85, 0, -0.08],
-  [9, 0, -0.75],
-  [13.5, 0, -1.4],
-  [22.5, 0, -2.15],
-  [33, 0, -2.65],
-  [40.5, 0, -2.95],
+  [4.85, 0, 0.08],
+  [9, 0, -0.05],
+  [13.5, 0, -0.7],
+  [22.5, 0, -1.8],
+  [33, 0, -2.45],
+  [40.5, 0, -2.85],
 ];
 
 const COLORS = {
@@ -184,7 +184,7 @@ function BridgeDeck({ centerline }: { centerline: THREE.CatmullRomCurve3 }) {
       offset: 0,
       y: 0.095,
       height: 0.19,
-      width: 3.36,
+      width: 2.8,
     });
     const deck = makeCurveBoxes({
       centerline,
@@ -275,7 +275,7 @@ function BridgeDeck({ centerline }: { centerline: THREE.CatmullRomCurve3 }) {
     for (let index = 0; index <= 28; index += 1) {
       const progress = index / 28;
       const tangent = centerline.getTangentAt(progress);
-      [-1.63, 1.63].forEach((offset) => {
+      [-1.38, 1.38].forEach((offset) => {
         const point = sampleOffset(centerline, progress, offset);
         perimeterFencePosts.push({
           position: [point.x, 0.56, point.z],
@@ -285,7 +285,7 @@ function BridgeDeck({ centerline }: { centerline: THREE.CatmullRomCurve3 }) {
       });
     }
 
-    const perimeterFenceRails = [-1.63, 1.63].flatMap((offset) =>
+    const perimeterFenceRails = [-1.38, 1.38].flatMap((offset) =>
       [0.3, 0.61, 0.93].flatMap((y) =>
         makeCurveBoxes({
           centerline,
@@ -297,7 +297,7 @@ function BridgeDeck({ centerline }: { centerline: THREE.CatmullRomCurve3 }) {
       ),
     );
 
-    const boundaryCurbs = [-1.63, 1.63].flatMap((offset) =>
+    const boundaryCurbs = [-1.38, 1.38].flatMap((offset) =>
       makeCurveBoxes({
         centerline,
         offset,

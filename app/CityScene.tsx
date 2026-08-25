@@ -24,6 +24,8 @@ import CoastalGround, {
   WATERFRONT_STREET_X,
   shorelineZAtX,
 } from "./three/CoastalGround";
+import EatonCentreDetailed from "./three/EatonCentreDetailed";
+import ShopifyFrontPark from "./three/ShopifyFrontPark";
 import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
 import UofTCampusDetailed from "./three/UofTCampusDetailed";
 import UnionRailCorridor from "./three/UnionRailCorridor";
@@ -59,20 +61,22 @@ function ScenePerformanceGovernor() {
 
 const ROGERS_CENTRE_POSITION: Point = [-14.7, 0, 4.65];
 const CN_ROGERS_PLAZA_POSITION: Point = [-11, 0, 4.535];
+const APARTMENT_POSITION: Point = [1.5, 0, -8.75];
+const FORMER_APARTMENT_POSITION: Point = [19, 0, -15.25];
 const CLIMBING_GYM_POSITION: Point = [-15, 0, -8.75];
 const FORMER_CLIMBING_GYM_POSITION: Point = [-15, 0, -15.25];
 const CLIMBING_GYM_BLOCK_DEPTH = 6.5;
 const UNION_STATION_POSITION: Point = [1.5, 0, 4.9];
 const FORMER_UNION_STATION_POSITION: Point = [1.5, 0, 4.25];
-const UNION_RAIL_CORRIDOR_HALF_WIDTH = 1.25;
+const UNION_RAIL_CORRIDOR_HALF_WIDTH = 1.42;
 const UNION_RAIL_CENTERLINE: readonly Point2[] = [
   [5.05, 4.9],
-  [6.35, 4.82],
-  [10.5, 4.15],
-  [15, 3.5],
-  [24, 2.75],
-  [34.5, 2.25],
-  [42, 1.95],
+  [6.35, 4.98],
+  [10.5, 4.85],
+  [15, 4.2],
+  [24, 3.1],
+  [34.5, 2.45],
+  [42, 2.05],
 ];
 
 type LandmarkDefinition = {
@@ -85,7 +89,7 @@ type LandmarkDefinition = {
 
 const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
   about: {
-    position: [19, 0, -15.25],
+    position: APARTMENT_POSITION,
     labelPosition: [0, 9, 0],
     number: "01",
     title: "About me",
@@ -106,8 +110,8 @@ const LANDMARKS: Record<DestinationId, LandmarkDefinition> = {
     landmark: "Shopify office",
   },
   market: {
-    position: [10.5, 0, -8.75],
-    labelPosition: [0, 4.1, 0],
+    position: [10.5, 0, -2.25],
+    labelPosition: [4.5, 4.1, 0],
     number: "04",
     title: "UofTMarket",
     landmark: "Eaton Centre",
@@ -164,10 +168,13 @@ const DEFAULT_VIEW = {
 };
 
 const CAMERA_VIEWS: Record<DestinationId, { position: Point; target: Point }> = {
-  about: createCinematicView([19, 4.5, -15.25], 18),
+  about: createCinematicView(
+    [APARTMENT_POSITION[0], 4.5, APARTMENT_POSITION[2]],
+    18,
+  ),
   education: createCinematicView([-7, 2.1, -15.25], 14.5),
   experience: createCinematicView([-23, 4.9, -2.25], 20),
-  market: createCinematicView([10.5, 1.85, -8.75], 14),
+  market: createCinematicView([15, 1.85, -2.25], 20),
   projects: createCinematicView([6, 1.4, 11.8], 13),
   hobbies: createCinematicView(
     [CLIMBING_GYM_POSITION[0], 1.65, CLIMBING_GYM_POSITION[2]],
@@ -314,6 +321,22 @@ const RAIL_DISTRICT_INLAND_EDGE_Z = ROAD_Z[ROAD_Z.length - 1] + 0.66;
 const UOFT_FIELD_ROAD_Z = -12;
 const UOFT_FIELD_MIN_X = -10.34;
 const UOFT_FIELD_MAX_X = -3.66;
+const SHOPIFY_PARK_MIN_X = -26.35;
+const SHOPIFY_PARK_MAX_X = -19.65;
+const SHOPIFY_PARK_MIN_Z = 1.55;
+const SHOPIFY_PARK_MAX_Z = 10.05;
+const EATON_CENTRE_MIN_X = 6.65;
+const EATON_CENTRE_MAX_X = 23.35;
+const EATON_CENTRE_MIN_Z = -5.2;
+const EATON_CENTRE_MAX_Z = 0.45;
+const EATON_DIVIDER_X = 15;
+// Stop at the coastal edge of the z=-5.5 perimeter street so the remaining
+// inland road still forms a complete intersection without entering the mall.
+const EATON_DIVIDER_ROAD_END_Z = -4.84;
+const APARTMENT_BLOCK_MIN_X = -2.55;
+const APARTMENT_BLOCK_MAX_X = 5.55;
+const APARTMENT_BLOCK_MIN_Z = -11.55;
+const APARTMENT_BLOCK_MAX_Z = -5.95;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
@@ -329,9 +352,9 @@ function inlandRoadEndX(z: number) {
 }
 
 function horizontalRoadEnd(z: number) {
-  // The southernmost east-west street now terminates cleanly at the x=15
-  // waterfront street instead of drifting into the diagonal shoreline.
-  return z === 1 ? 15.66 : inlandRoadEndX(z);
+  // Complete the street across both Eaton Centre blocks and terminate it at
+  // the outer edge of the x=24 intersection, immediately before the rail lot.
+  return z === 1 ? 24.66 : inlandRoadEndX(z);
 }
 
 function horizontalRoadSpans(z: number) {
@@ -364,6 +387,11 @@ function unionRailZAtX(x: number) {
 
 function verticalRoadSpans(x: number) {
   const roadEnd = verticalRoadEnd(x);
+  if (x === EATON_DIVIDER_X) {
+    const end = Math.min(roadEnd, EATON_DIVIDER_ROAD_END_Z);
+    return end - CITY_MIN_Z > 0.5 ? [{ start: CITY_MIN_Z, end }] : [];
+  }
+
   const railZ = unionRailZAtX(x);
   if (railZ === null || railZ <= CITY_MIN_Z || railZ >= roadEnd) {
     return [{ start: CITY_MIN_Z, end: roadEnd }];
@@ -402,7 +430,9 @@ const CLEARINGS = [
     // centres. Their deliberate block moves are handled explicitly below so
     // unrelated random buildings do not reshuffle.
     const clearingPosition =
-      id === "hobbies"
+      id === "about"
+        ? FORMER_APARTMENT_POSITION
+        : id === "hobbies"
         ? FORMER_CLIMBING_GYM_POSITION
         : id === "contact"
           ? FORMER_UNION_STATION_POSITION
@@ -570,6 +600,39 @@ function blocksUofTFrontField(building: Building) {
   );
 }
 
+function blocksApartmentBlock(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > APARTMENT_BLOCK_MIN_X &&
+    building.x - halfWidth < APARTMENT_BLOCK_MAX_X &&
+    building.z + halfDepth > APARTMENT_BLOCK_MIN_Z &&
+    building.z - halfDepth < APARTMENT_BLOCK_MAX_Z
+  );
+}
+
+function blocksShopifyFrontPark(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > SHOPIFY_PARK_MIN_X &&
+    building.x - halfWidth < SHOPIFY_PARK_MAX_X &&
+    building.z + halfDepth > SHOPIFY_PARK_MIN_Z &&
+    building.z - halfDepth < SHOPIFY_PARK_MAX_Z
+  );
+}
+
+function blocksEatonCentreExpansion(building: Building) {
+  const halfWidth = building.width * 0.5;
+  const halfDepth = building.depth * 0.5;
+  return (
+    building.x + halfWidth > EATON_CENTRE_MIN_X &&
+    building.x - halfWidth < EATON_CENTRE_MAX_X &&
+    building.z + halfDepth > EATON_CENTRE_MIN_Z &&
+    building.z - halfDepth < EATON_CENTRE_MAX_Z
+  );
+}
+
 function createCityData(): CityData {
   const random = mulberry32(8142027);
   const buildings: Building[] = [];
@@ -666,7 +729,13 @@ function createCityData(): CityData {
         tone,
         protectedSightline,
       };
-      if (blocksUnionRailCorridor(building) || blocksUofTFrontField(building)) {
+      if (
+        blocksUnionRailCorridor(building) ||
+        blocksUofTFrontField(building) ||
+        blocksApartmentBlock(building) ||
+        blocksShopifyFrontPark(building) ||
+        blocksEatonCentreExpansion(building)
+      ) {
         // Consume the same deterministic window RNG as before so removing the
         // rail obstructions cannot reshuffle unrelated skyline buildings.
         addBuildingWindows(
@@ -1440,9 +1509,7 @@ type RouteAsset = {
 const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   about: [
     [-3, 0.13, -5.5],
-    [15, 0.13, -5.5],
-    [15, 0.13, -12],
-    [19, 0.13, -12],
+    [-3, 0.13, APARTMENT_POSITION[2]],
   ],
   education: [
     [-7, 0.13, -5.5],
@@ -1455,7 +1522,7 @@ const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   market: [
     [-3, 0.13, -5.5],
     [6, 0.13, -5.5],
-    [6, 0.13, -8.75],
+    [6, 0.13, -2.25],
   ],
   projects: [
     [-3, 0.13, 1],
@@ -1887,56 +1954,6 @@ function ApartmentTower() {
   );
 }
 
-function EatonCentre() {
-  return (
-    <group>
-      <mesh position={[0, 0.08, 0]}>
-        <boxGeometry args={[5.8, 0.14, 3.65]} />
-        <meshStandardMaterial color="#394049" metalness={0.42} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 0.72, 0]} castShadow>
-        <boxGeometry args={[5.2, 1.45, 3.2]} />
-        <meshStandardMaterial color="#202838" metalness={0.5} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 1.48, 0]} rotation-z={Math.PI / 2}>
-        <cylinderGeometry args={[1.03, 1.03, 4.7, 18, 1, false, 0, Math.PI]} />
-        <meshPhysicalMaterial
-          color="#1d4b63"
-          metalness={0.28}
-          opacity={0.72}
-          roughness={0.18}
-          side={THREE.DoubleSide}
-          transparent
-        />
-      </mesh>
-      {[-2.05, -1.35, -0.68, 0, 0.68, 1.35, 2.05].map((x) => (
-        <mesh key={x} position={[x, 1.48, 0]} rotation-y={Math.PI / 2}>
-          <torusGeometry args={[1.03, 0.025, 7, 20, Math.PI]} />
-          <meshStandardMaterial color="#9aaeb9" metalness={0.52} roughness={0.36} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.92, 1.62]}>
-        <boxGeometry args={[4.5, 0.1, 0.06]} />
-        <meshBasicMaterial color="#ff7766" opacity={0.88} transparent toneMapped={false} />
-      </mesh>
-      {[-1.7, -0.85, 0, 0.85, 1.7].map((x) => (
-        <mesh key={x} position={[x, 0.54, 1.64]}>
-          <boxGeometry args={[0.56, 0.62, 0.04]} />
-          <meshBasicMaterial color={x === 0 ? "#ff9b6b" : "#79c9e9"} toneMapped={false} />
-        </mesh>
-      ))}
-      <mesh position={[0, 0.18, 0]} rotation-x={-Math.PI / 2}>
-        <planeGeometry args={[4.4, 2.15]} />
-        <meshBasicMaterial color="#f3b86b" opacity={0.08} transparent toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 1.92, 0]}>
-        <boxGeometry args={[4.8, 0.035, 0.06]} />
-        <meshBasicMaterial color="#7cc9e8" opacity={0.72} transparent toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
 function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
   const boats = useRef<THREE.Group>(null);
 
@@ -2048,10 +2065,11 @@ function Landmarks(props: CitySceneProps) {
         <UofTCampusDetailed />
       </InteractiveLandmark>
       <InteractiveLandmark id="experience" {...props}>
+        <ShopifyFrontPark />
         <ShopifyOfficeDetailed reducedMotion={props.reducedMotion} />
       </InteractiveLandmark>
       <InteractiveLandmark id="market" {...props}>
-        <EatonCentre />
+        <EatonCentreDetailed />
       </InteractiveLandmark>
       <InteractiveLandmark id="projects" {...props}>
         <Harvourfront reducedMotion={props.reducedMotion} />
@@ -2102,7 +2120,12 @@ function CityWorld(props: CitySceneProps) {
       <pointLight color="#247fc7" distance={25} intensity={38} position={[-1, 5, 4.25]} />
       <pointLight color="#e7a45b" distance={13} intensity={22} position={[-7, 4.5, -15.25]} />
       <pointLight color="#48c6ff" distance={14} intensity={21} position={[-23, 5.8, -2.25]} />
-      <pointLight color="#e2a45c" distance={12} intensity={18} position={[19, 5.6, -15.25]} />
+      <pointLight
+        color="#e2a45c"
+        distance={12}
+        intensity={18}
+        position={[APARTMENT_POSITION[0], 5.6, APARTMENT_POSITION[2]]}
+      />
       <pointLight color="#378fbc" distance={16} intensity={20} position={[6, 2.2, 11.8]} />
       <pointLight color="#f0b66f" decay={2} distance={10} intensity={13} position={[-15, 3.2, -14.1]} />
 

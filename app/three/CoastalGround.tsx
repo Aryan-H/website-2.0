@@ -40,6 +40,7 @@ export const COASTAL_ROAD_SETBACK = 4.35;
 
 // Keeps the z=1 to z=7.5 landmark blocks intact through their eastern edge at x=6.
 const COASTLINE_OUTSET = 3.8;
+const RAIL_DISTRICT_COAST_EXPANSION = 0.72;
 const COASTAL_ROAD_OFFSET = -2.62;
 const COASTAL_ROAD_WIDTH = 1.68;
 const JUNCTION_HALF_WIDTH = 0.82;
@@ -52,10 +53,22 @@ const WATERFRONT_JUNCTION_X = WATERFRONT_STREET_X.filter(
 
 /** Land occupies z < shorelineZAtX(x); water occupies z > shorelineZAtX(x). */
 export function shorelineZAtX(x: number): number {
+  // Give the expanded Eaton/rail district more breathing room without moving
+  // Harbourfront: ease the coast outward east of x=5, hold it through the
+  // mall, then blend back into the original shoreline near the map edge.
+  const smoothstep = (start: number, end: number, value: number) => {
+    const t = THREE.MathUtils.clamp((value - start) / (end - start), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const districtExpansion =
+    RAIL_DISTRICT_COAST_EXPANSION *
+    smoothstep(5, 11, x) *
+    (1 - smoothstep(31, 36, x));
+  const outset = COASTLINE_OUTSET + districtExpansion;
   const first = SHORE_ANCHORS[0];
   const last = SHORE_ANCHORS[SHORE_ANCHORS.length - 1];
-  if (x <= first[0]) return first[1] + COASTLINE_OUTSET;
-  if (x >= last[0]) return last[1] + COASTLINE_OUTSET;
+  if (x <= first[0]) return first[1] + outset;
+  if (x >= last[0]) return last[1] + outset;
 
   const rightIndex = SHORE_ANCHORS.findIndex(([anchorX]) => anchorX >= x);
   const leftIndex = Math.max(0, rightIndex - 1);
@@ -70,7 +83,7 @@ export function shorelineZAtX(x: number): number {
   const leftSlope = (rightZ - previous[1]) / (rightX - previous[0]);
   const rightSlope = (next[1] - leftZ) / (next[0] - leftX);
 
-  return COASTLINE_OUTSET + (
+  return outset + (
     (2 * t3 - 3 * t2 + 1) * leftZ +
     (t3 - 2 * t2 + t) * span * leftSlope +
     (-2 * t3 + 3 * t2) * rightZ +
@@ -973,7 +986,7 @@ export default function CoastalGround({ reducedMotion }: { reducedMotion: boolea
       createRibbonGeometry(
         curve,
         -3.82,
-        0.62,
+        0.78,
         144,
         WATERFRONT_JUNCTION_X,
         JUNCTION_HALF_WIDTH,
