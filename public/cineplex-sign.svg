@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240">
+  <rect width="900" height="240" rx="22" fill="#102235"/>
+  <g transform="translate(118 120)" fill="none" stroke="#f2ba2f" stroke-width="17">
+    <ellipse rx="75" ry="30"/>
+    <ellipse rx="63" ry="24" transform="rotate(45)"/>
+    <ellipse rx="63" ry="24" transform="rotate(-45)"/>
+  </g>
+  <text x="225" y="151" fill="#f5f7f4" font-family="Arial, Helvetica, sans-serif" font-size="88" font-weight="700" letter-spacing="7">CINEPLEX</text>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 920">
+  <rect x="18" y="18" width="324" height="884" rx="16" fill="#126daf" stroke="#6ba4ca" stroke-width="16"/>
+  <path d="M52 88h256M52 832h256" stroke="#c2cbd0" stroke-width="9" opacity=".82"/>
+  <g fill="#d7dde1" stroke="#89969e" stroke-width="3" paint-order="stroke" font-family="PingFang SC, Noto Sans CJK SC, Arial Unicode MS, sans-serif" font-size="184" font-weight="800" text-anchor="middle">
+    <text x="180" y="292">唐</text>
+    <text x="180" y="525">人</text>
+    <text x="180" y="758">街</text>
+  </g>
+</svg>
