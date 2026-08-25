@@ -25,6 +25,7 @@ import CoastalGround, {
   shorelineZAtX,
 } from "./three/CoastalGround";
 import EatonCentreDetailed from "./three/EatonCentreDetailed";
+import GlassApartmentDetailed from "./three/GlassApartmentDetailed";
 import ShopifyFrontPark from "./three/ShopifyFrontPark";
 import ShopifyOfficeDetailed from "./three/ShopifyOfficeDetailed";
 import UofTCampusDetailed from "./three/UofTCampusDetailed";
@@ -61,7 +62,7 @@ function ScenePerformanceGovernor() {
 
 const ROGERS_CENTRE_POSITION: Point = [-14.7, 0, 4.65];
 const CN_ROGERS_PLAZA_POSITION: Point = [-11, 0, 4.535];
-const APARTMENT_POSITION: Point = [1.5, 0, -8.75];
+const APARTMENT_POSITION: Point = [1.5, 0, -15.25];
 const FORMER_APARTMENT_POSITION: Point = [19, 0, -15.25];
 const CLIMBING_GYM_POSITION: Point = [-15, 0, -8.75];
 const FORMER_CLIMBING_GYM_POSITION: Point = [-15, 0, -15.25];
@@ -335,8 +336,8 @@ const EATON_DIVIDER_X = 15;
 const EATON_DIVIDER_ROAD_END_Z = -4.84;
 const APARTMENT_BLOCK_MIN_X = -2.55;
 const APARTMENT_BLOCK_MAX_X = 5.55;
-const APARTMENT_BLOCK_MIN_Z = -11.55;
-const APARTMENT_BLOCK_MAX_Z = -5.95;
+const APARTMENT_BLOCK_MIN_Z = -18.05;
+const APARTMENT_BLOCK_MAX_Z = -12.45;
 const CITY_MIN_X = -35;
 const CITY_MAX_X = 35;
 const CITY_MIN_Z = -22;
@@ -1509,7 +1510,8 @@ type RouteAsset = {
 const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
   about: [
     [-3, 0.13, -5.5],
-    [-3, 0.13, APARTMENT_POSITION[2]],
+    [-3, 0.13, -12],
+    [APARTMENT_POSITION[0], 0.13, -12],
   ],
   education: [
     [-7, 0.13, -5.5],
@@ -1543,6 +1545,7 @@ const ROUTE_WAYPOINTS: Record<Exclude<DestinationId, "overview">, Point[]> = {
 const ROUTE_ENDPOINTS: Partial<
   Record<Exclude<DestinationId, "overview">, Point>
 > = {
+  about: [APARTMENT_POSITION[0], 0.13, -12.78],
   experience: [-20.85, 0.13, -0.35],
   contact: [UNION_STATION_POSITION[0], 0.13, 7.15],
 };
@@ -1871,89 +1874,6 @@ function InteractiveLandmark({
   );
 }
 
-function ApartmentTower() {
-  const windows = useMemo<InstanceTransform[]>(() => {
-    const result: InstanceTransform[] = [];
-    for (let floor = 0; floor < 9; floor += 1) {
-      for (let column = 0; column < 4; column += 1) {
-        if (floor === 6 && column === 2) continue;
-        result.push({
-          position: [-0.9 + column * 0.6, 0.7 + floor * 0.63, 1.23],
-          scale: [0.19, 0.2, 0.022],
-        });
-      }
-      for (let column = 0; column < 3; column += 1) {
-        result.push({
-          position: [
-            1.515,
-            0.7 + floor * 0.63,
-            -0.72 + column * 0.72,
-          ],
-          scale: [0.022, 0.2, 0.16],
-        });
-      }
-    }
-    return result;
-  }, []);
-
-  return (
-    <group>
-      <mesh position={[0, 0.38, 0.15]} castShadow>
-        <boxGeometry args={[4.1, 0.76, 3]} />
-        <meshStandardMaterial color="#17212c" metalness={0.48} roughness={0.4} />
-      </mesh>
-      <mesh position={[0, 3.35, 0]} castShadow>
-        <boxGeometry args={[3, 6.7, 2.4]} />
-        <meshPhysicalMaterial
-          clearcoat={0.76}
-          clearcoatRoughness={0.19}
-          color="#0c1927"
-          metalness={0.62}
-          roughness={0.28}
-        />
-      </mesh>
-      <DetailInstances items={windows} color="#547594" opacity={0.5} />
-      {Array.from({ length: 6 }, (_, index) => (
-        <mesh key={index} position={[0, 0.72 + index * 0.92, 1.36]}>
-          <boxGeometry args={[3.18, 0.055, 0.34]} />
-          <meshStandardMaterial color="#1b2938" roughness={0.42} metalness={0.55} />
-        </mesh>
-      ))}
-      <mesh position={[0.6, 4.49, 1.235]}>
-        <boxGeometry args={[0.43, 0.48, 0.034]} />
-        <meshBasicMaterial color="#ffd08a" toneMapped={false} />
-      </mesh>
-      <mesh position={[0.6, 4.49, 1.18]}>
-        <planeGeometry args={[0.92, 0.95]} />
-        <meshBasicMaterial
-          blending={THREE.AdditiveBlending}
-          color="#ffac54"
-          depthWrite={false}
-          opacity={0.13}
-          transparent
-          toneMapped={false}
-        />
-      </mesh>
-      <mesh position={[0, 6.79, 0]}>
-        <boxGeometry args={[2.3, 0.18, 1.9]} />
-        <meshStandardMaterial color="#17293d" metalness={0.62} roughness={0.32} />
-      </mesh>
-      <mesh position={[0.5, 7.08, -0.18]}>
-        <boxGeometry args={[0.62, 0.42, 0.52]} />
-        <meshStandardMaterial color="#263340" metalness={0.48} roughness={0.45} />
-      </mesh>
-      <mesh position={[-0.42, 7.56, 0]}>
-        <cylinderGeometry args={[0.018, 0.025, 1.45, 8]} />
-        <meshStandardMaterial color="#73818a" metalness={0.62} roughness={0.38} />
-      </mesh>
-      <mesh position={[0, 0.49, 1.54]}>
-        <boxGeometry args={[1.5, 0.64, 0.045]} />
-        <meshBasicMaterial color="#d6b574" opacity={0.68} transparent toneMapped={false} />
-      </mesh>
-    </group>
-  );
-}
-
 function Harvourfront({ reducedMotion }: { reducedMotion: boolean }) {
   const boats = useRef<THREE.Group>(null);
 
@@ -2059,7 +1979,7 @@ function Landmarks(props: CitySceneProps) {
         />
       </group>
       <InteractiveLandmark id="about" {...props}>
-        <ApartmentTower />
+        <GlassApartmentDetailed />
       </InteractiveLandmark>
       <InteractiveLandmark id="education" {...props}>
         <UofTCampusDetailed />
